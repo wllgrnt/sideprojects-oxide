@@ -1,0 +1,8 @@
+[package]
+name = "furnace"
+version = "0.1.0"
+authors = ["WillG <wpg23@cam.ac.uk>"]
+
+[dependencies]
+
+glium = "*"
