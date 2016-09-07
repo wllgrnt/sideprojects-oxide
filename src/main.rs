@@ -5,7 +5,9 @@ extern crate glium;
 /// Furnace - draw a triangle!
 fn main() {
     use glium::{DisplayBuild, Surface};
-    let display = glium::glutin::WindowBuilder::new().build_glium().unwrap();
+    let display = glium::glutin::WindowBuilder::new()
+        .with_title("Furnace: Molecular Visualisation".to_string())
+        .build_glium().unwrap();
 
     #[derive(Copy, Clone)]
     struct Vertex {
