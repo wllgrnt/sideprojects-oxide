@@ -13,7 +13,7 @@ fn main() {
     target.clear_color(1.0, 1.0, 1.0, 1.0);
     target.finish().unwrap();
     loop {
-
+        println!("This is Mark Testing Git Merge!");
         // listing the events produced by the window and waiting to be received
         for ev in display.poll_events() {
             match ev {
