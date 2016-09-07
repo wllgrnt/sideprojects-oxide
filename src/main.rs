@@ -43,7 +43,7 @@ fn main() {
         out vec4 color;
 
         void main() {
-            color = vec4(0.0, 0.169, 0.212, 1.0);
+            color = vec4(0.847, 0.359375, 0.007812, 1.0);
         }
     "#;
 
