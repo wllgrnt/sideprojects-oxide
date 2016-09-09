@@ -128,10 +128,10 @@ impl<'a> Atom<'a> {
 			_position    : in_position.to_owned(),
 			_size        : in_size.to_owned(),
 			_body_matrix : Matrix::new([
-				[*in_size, 0.0     , 0.0     ,in_position[0]],
-				[0.0     , *in_size, 0.0     ,in_position[1]],
-				[0.0     , 0.0     , *in_size,in_position[2]],
-				[0.0     , 0.0     , 0.0     ,1.0]
+				[*in_size, 0.0     , 0.0     , in_position[0]],
+				[0.0     , *in_size, 0.0     , in_position[1]],
+				[0.0     , 0.0     , *in_size, in_position[2]],
+				[0.0     , 0.0     , 0.0     , 1.0           ]
 			]),
 		}
 	}
@@ -164,6 +164,32 @@ impl<'a> Molecule<'a> {
 
 
 // ==============================
+// Camera
+// ==============================
+struct Camera {
+	_position      : [f32;3],
+	_camera_matrix : Matrix,
+}
+
+impl Camera {
+	fn new (
+		in_position : &[f32;3],
+	) -> Camera {
+		Camera {
+			_position    : in_position.to_owned(),
+			_camera_matrix : Matrix::new([
+				[1.0, 0.0, 0.0, -in_position[0]],
+				[0.0, 1.0, 0.0, -in_position[1]],
+				[0.0, 0.0, 1.0, -in_position[2]],
+				[0.0, 0.0, 0.0, 1.0]
+			]),
+		}
+	}
+	
+	fn camera_matrix(&self) -> &Matrix {&self._camera_matrix}
+}
+
+// ==============================
 // Main Program
 // ==============================
 /// Furnace - draw a triangle!
@@ -176,24 +202,50 @@ let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::Wind
 	implement_vertex!(Vertex, position);
 
 	// The positions of each vertex of the triangle
-	let vertex1 = Vertex::new([-1.0, -1.0, 0.0]);
-	let vertex2 = Vertex::new([-1.0,  1.0, 0.0]);
-	let vertex3 = Vertex::new([ 1.0,  0.0, 0.0]);
-	let triangle = Mesh::new(&display, &vec![vertex1, vertex2, vertex3], &vec![0, 1, 2u16]);
+	let triangle_vertex0 = Vertex::new([-1.0, -1.0, 0.0]);
+	let triangle_vertex1 = Vertex::new([-1.0,  1.0, 0.0]);
+	let triangle_vertex2 = Vertex::new([ 1.0,  0.0, 0.0]);
+	let triangle = Mesh::new(
+		&display,
+		&vec![triangle_vertex0, triangle_vertex1, triangle_vertex2],
+		&vec![0, 1, 2u16]
+	);
 
 	// The positions of each vertex of the square
-	let vertex4 = Vertex::new([-1.0, -1.0, 0.0]);
-	let vertex5 = Vertex::new([ 1.0, -1.0, 0.0]);
-	let vertex6 = Vertex::new([-1.0,  1.0, 0.0]);
-	let vertex7 = Vertex::new([ 1.0,  1.0, 0.0]);
-	let square = Mesh::new(&display, &vec![vertex4, vertex5, vertex6, vertex7], &vec![0, 1, 2, 3u16]);
+	let square_vertex0 = Vertex::new([-1.0, -1.0, 0.0]);
+	let square_vertex1 = Vertex::new([ 1.0, -1.0, 0.0]);
+	let square_vertex2 = Vertex::new([-1.0,  1.0, 0.0]);
+	let square_vertex3 = Vertex::new([ 1.0,  1.0, 0.0]);
+	let square = Mesh::new(
+		&display,
+		&vec![square_vertex0, square_vertex1, square_vertex2, square_vertex3],
+		&vec![0, 1, 2, 3u16]
+	);
 	
-	//let position1 = [0.0, 0.0, 0.0];
-	
-	//let position2 = [0.5, 0.0, 0.0];
+	// A cube (will likely get wierd rounded edges because everything uses triangle strips
+	// This will mean surface normals get interpolated - not what you want for a cube.
+	let cube = Mesh::new(
+		&display,
+		&vec![
+			Vertex::new([-1.0, -1.0, -1.0]),
+			Vertex::new([ 1.0, -1.0, -1.0]),
+			Vertex::new([-1.0,  1.0, -1.0]),
+			Vertex::new([ 1.0,  1.0, -1.0]),
+			Vertex::new([-1.0, -1.0,  1.0]),
+			Vertex::new([ 1.0, -1.0,  1.0]),
+			Vertex::new([-1.0,  1.0,  1.0]),
+			Vertex::new([ 1.0,  1.0,  1.0])
+		],
+		&vec![
+			0, 1, 2, 3, // the -z face
+			6, 7,       // the y face
+			4, 5,       // the z face
+			0, 1u16     // the -y face
+		]
+	);
 	
 	let mut molecule = Molecule::new();
-	molecule.add_atom(&triangle, &[ 0.0,  0.0, 0.0], &0.2);
+	molecule.add_atom(&cube, &[ 0.0,  0.0, 0.0], &0.2);
 	molecule.add_atom(&triangle, &[ 0.5,  0.5, 0.0], &0.2);
 	molecule.add_atom(&triangle, &[ 0.5, -0.5, 0.0], &0.2);
 	molecule.add_atom(&triangle, &[-0.5,  0.5, 0.0], &0.2);
@@ -229,12 +281,7 @@ let fragment_shader_src = r#"
 
 	let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 	
-	let camera_matrix = Matrix::new([
-		[1.0, 0.0, 0.0, 0.0],
-		[0.0, 1.0, 0.0, 0.0],
-		[0.0, 0.0, 1.0, 0.0],
-		[0.0, 0.0, 0.0, 1.0]
-	]);
+	let camera = Camera::new(&[0.5,0.0,1.0]);
 	
 	let perspective_matrix = Matrix::new([
 		[1.0, 0.0, 0.0, 0.0],
@@ -243,9 +290,8 @@ let fragment_shader_src = r#"
 		[0.0, 0.0, 0.0, 1.0]
 	]);
 	
-	let view_matrix = perspective_matrix*camera_matrix;
-	
 	loop {
+		let view_matrix = perspective_matrix**camera.camera_matrix();
 		let mut target = display.draw();
 		target.clear_color(0.93, 0.91, 0.835, 1.0);
 		for atom in molecule.atoms() {
