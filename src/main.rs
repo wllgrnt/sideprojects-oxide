@@ -1,11 +1,12 @@
 #[macro_use]
 extern crate glium;
 
-use std::ops::Mul;
+use std::f32;      //pi
+use std::ops::Mul; // multiplication overload
 
-// ==============================
+// ============================================================
 // Vertex
-// ==============================
+// ============================================================
 #[derive(Copy, Clone)]
 struct Vertex {
 	position : [f32;4],
@@ -19,9 +20,9 @@ impl Vertex {
 	}
 }
 
-// ==============================
+// ============================================================
 // Matrix
-// ==============================
+// ============================================================
 // NB: OpenGL treats vectors as row vectors, so matrices must be transposed and multiplication reversed.
 /// A 4x4 matrix for holding transformations.
 #[derive(Copy, Clone)]
@@ -70,9 +71,9 @@ impl Mul for Matrix {
 	}
 }
 
-// ==============================
+// ============================================================
 // Mesh
-// ==============================
+// ============================================================
 /// The mesh of a single object (a triangle, a sphere, a goove...)
 struct Mesh {
 	/// The vertices of the triangles out of which the mesh is made
@@ -106,9 +107,9 @@ impl Mesh {
 }
 
 
-// ==============================
+// ============================================================
 // Atom
-// ==============================
+// ============================================================
 /// The atom, the fundamental unit of a molecular viewer.
 struct Atom<'a> {
 	_mesh        : &'a Mesh,
@@ -140,9 +141,9 @@ impl<'a> Atom<'a> {
 	fn body_matrix(&self) -> &Matrix {&self._body_matrix}
 }
 
-// ==============================
+// ============================================================
 // Molecule
-// ==============================
+// ============================================================
 // Will likely be the top level struct, unless we need something which has an OpenGL thing + this
 /// The molecule. May also be a cluster, crystal motif,...
 struct Molecule<'a> {
@@ -163,44 +164,88 @@ impl<'a> Molecule<'a> {
 }
 
 
-// ==============================
+// ============================================================
 // Camera
-// ==============================
+// ============================================================
 struct Camera {
-	_position      : [f32;3],
-	_camera_matrix : Matrix,
+	_position           : [f32;3],
+	_field_of_view      : f32,
+	_near_plane         : f32,
+	_far_plane          : f32,
+	_camera_matrix      : Matrix,
+	_perspective_matrix : Matrix,
+	_view_matrix        : Matrix,
 }
 
 impl Camera {
 	fn new (
-		in_position : &[f32;3],
+		in_display       : &glium::backend::glutin_backend::GlutinFacade,
+		in_position      : &[f32;3],
+		in_field_of_view : &f32,
+		in_near_plane    : &f32,
+		in_far_plane     : &f32
 	) -> Camera {
+		
+		let camera_matrix = Matrix::new([
+			[1.0, 0.0, 0.0, -in_position[0]],
+			[0.0, 1.0, 0.0, -in_position[1]],
+			[0.0, 0.0, 1.0, -in_position[2]],
+			[0.0, 0.0, 0.0, 1.0]
+		]);
+		
+		let (w, h) = (*in_display).get_framebuffer_dimensions();
+		let mut w = w as f32;
+		let mut h = h as f32;
+		if w > h {
+			w = w/h;
+			h = 1.0;
+		} else {
+			w = 1.0;
+			h = h/w;
+		}
+		
+		let s = 1.0/(in_field_of_view*f32::consts::PI/360.0).tan();
+		let n = in_near_plane.to_owned();
+		let f = in_far_plane.to_owned();
+		let perspective_matrix = Matrix::new([
+			[s/w, 0.0, 0.0    , 0.0      ],
+			[0.0, s/h, 0.0    , 0.0      ],
+			[0.0, 0.0, f/(n-f), f*n/(n-f)],
+			[0.0, 0.0, -1.0   , 0.0      ]
+		]);
+		
 		Camera {
-			_position    : in_position.to_owned(),
-			_camera_matrix : Matrix::new([
-				[1.0, 0.0, 0.0, -in_position[0]],
-				[0.0, 1.0, 0.0, -in_position[1]],
-				[0.0, 0.0, 1.0, -in_position[2]],
-				[0.0, 0.0, 0.0, 1.0]
-			]),
+			_position           : in_position.to_owned(),
+			_field_of_view      : in_field_of_view.to_owned(),
+			_near_plane         : in_near_plane.to_owned(),
+			_far_plane          : in_far_plane.to_owned(),
+			_camera_matrix      : camera_matrix,
+			_perspective_matrix : perspective_matrix,
+			_view_matrix        : perspective_matrix * camera_matrix,
 		}
 	}
 	
-	fn camera_matrix(&self) -> &Matrix {&self._camera_matrix}
+	fn view_matrix(&self) -> &Matrix {&self._view_matrix}
 }
 
-// ==============================
+// ============================================================
 // Main Program
-// ==============================
+// ============================================================
 /// Furnace - draw a triangle!
 fn main() {
-use glium::{DisplayBuild, Surface};
-let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::WindowBuilder::new()
-	.with_title("Furnace: Molecular Visualisation".to_string())
-	.build_glium().unwrap();
+	// ==============================
+	// Make display
+	// ==============================
+	use glium::{DisplayBuild, Surface};
+	let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::WindowBuilder::new()
+		.with_title("Furnace: Molecular Visualisation".to_string())
+		.build_glium().unwrap();
 
 	implement_vertex!(Vertex, position);
 
+	// ==============================
+	// Make meshes
+	// ==============================
 	// The positions of each vertex of the triangle
 	let triangle_vertex0 = Vertex::new([-1.0, -1.0, 0.0]);
 	let triangle_vertex1 = Vertex::new([-1.0,  1.0, 0.0]);
@@ -244,6 +289,9 @@ let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::Wind
 		]
 	);
 	
+	// ==============================
+	// Make molecule
+	// ==============================
 	let mut molecule = Molecule::new();
 	molecule.add_atom(&cube, &[ 0.0,  0.0, 0.0], &0.2);
 	molecule.add_atom(&triangle, &[ 0.5,  0.5, 0.0], &0.2);
@@ -255,6 +303,22 @@ let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::Wind
 	molecule.add_atom(&square, &[ 0.0,  0.5, 0.0], &0.2);
 	molecule.add_atom(&square, &[ 0.0, -0.5, 0.0], &0.2);
 	
+	// ==============================
+	// Make camera
+	// ==============================
+	// camera position
+	let camera_position = [1.0,1.0,2.0];
+	// field of view, in degrees
+	let field_of_view = 90.0;
+	// near and far clipping planes
+	let near_plane = 1.0;
+	let far_plane = 10.0;
+	
+	let camera = Camera::new(&display, &camera_position, &field_of_view, &near_plane, &far_plane);
+	
+	// ==============================
+	// Make shaders
+	// ==============================
 	// Vertex shader in OpenGL v140 (written in GLSL) 
 	let vertex_shader_src = r#"
 	#version 140
@@ -268,34 +332,27 @@ let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::Wind
 	}
 	"#;
 
-// Fragment/Pixel shader in OpenGL v140 (written in GLSL) 
-let fragment_shader_src = r#"
-	#version 140
+	// Fragment/Pixel shader in OpenGL v140 (written in GLSL) 
+	let fragment_shader_src = r#"
+		#version 140
 
-	out vec4 color;
+		out vec4 color;
 
-	void main() {
-		color = vec4(0.847, 0.359375, 0.007812, 1.0);
-	}
-"#;
+		void main() {
+			color = vec4(0.847, 0.359375, 0.007812, 1.0);
+		}
+	"#;
 
 	let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 	
-	let camera = Camera::new(&[0.5,0.0,1.0]);
-	
-	let perspective_matrix = Matrix::new([
-		[1.0, 0.0, 0.0, 0.0],
-		[0.0, 1.0, 0.0, 0.0],
-		[0.0, 0.0, 1.0, 0.0],
-		[0.0, 0.0, 0.0, 1.0]
-	]);
-	
+	// ==============================
+	// Run everything
+	// ==============================
 	loop {
-		let view_matrix = perspective_matrix**camera.camera_matrix();
 		let mut target = display.draw();
 		target.clear_color(0.93, 0.91, 0.835, 1.0);
 		for atom in molecule.atoms() {
-			let matrix = *atom.body_matrix() * view_matrix;
+			let matrix = *atom.body_matrix() * *camera.view_matrix();
 			let uniforms = uniform!{matrix: matrix.contents().to_owned()};
 			target.draw(
 				atom.mesh().vertex_buffer(),
