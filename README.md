@@ -13,3 +13,18 @@ Steps to making a visualiser:
 3) Render a sphere at each one of those coordinates.
 4) Iterate and improve
 
+Personal to-dos
+===============
+
+wpg
+---
+
+mj
+--
+
+mle
+---
+
+* Write interface with some crystal file formats to plot shapes at the right coordinates
+
+
