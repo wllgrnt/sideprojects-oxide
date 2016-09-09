@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate glium;
 
+use std::ops::Mul;
+
 // ==============================
 // Vertex
 // ==============================
@@ -21,8 +23,8 @@ impl Vertex {
 // Matrix
 // ==============================
 // NB: OpenGL treats vectors as row vectors, so matrices must be transposed and multiplication reversed.
-// TODO: we really need proper linear algebra, or matrix stuff will be super slow.
 /// A 4x4 matrix for holding transformations.
+#[derive(Copy, Clone)]
 struct Matrix {
 	_contents : [[f32; 4]; 4]
 }
@@ -32,6 +34,39 @@ impl Matrix {
 		Matrix {
 			_contents: in_matrix
 		}
+	}
+	
+	fn contents(&self) -> &[[f32;4];4] {&self._contents}
+}
+
+// Matrix multiplication. TODO: use a linear algebra library.
+impl Mul for Matrix {
+	type Output = Matrix;
+	
+	fn mul (self, in_other : Matrix) -> Matrix {
+		let a : &[[f32;4];4] = &self._contents;
+		let b : &[[f32;4];4] = &in_other._contents;
+		Matrix::new([[
+			a[0][0]*b[0][0]+a[0][1]*b[1][0]+a[0][2]*b[2][0]+a[0][3]*b[3][0],
+			a[0][0]*b[0][1]+a[0][1]*b[1][1]+a[0][2]*b[2][1]+a[0][3]*b[3][1],
+			a[0][0]*b[0][2]+a[0][1]*b[1][2]+a[0][2]*b[2][2]+a[0][3]*b[3][2],
+			a[0][0]*b[0][3]+a[0][1]*b[1][3]+a[0][2]*b[2][3]+a[0][3]*b[3][3]
+		], [
+			a[1][0]*b[0][0]+a[1][1]*b[1][0]+a[1][2]*b[2][0]+a[1][3]*b[3][0],
+			a[1][0]*b[0][1]+a[1][1]*b[1][1]+a[1][2]*b[2][1]+a[1][3]*b[3][1],
+			a[1][0]*b[0][2]+a[1][1]*b[1][2]+a[1][2]*b[2][2]+a[1][3]*b[3][2],
+			a[1][0]*b[0][3]+a[1][1]*b[1][3]+a[1][2]*b[2][3]+a[1][3]*b[3][3]
+		], [
+			a[2][0]*b[0][0]+a[2][1]*b[1][0]+a[2][2]*b[2][0]+a[2][3]*b[3][0],
+			a[2][0]*b[0][1]+a[2][1]*b[1][1]+a[2][2]*b[2][1]+a[2][3]*b[3][1],
+			a[2][0]*b[0][2]+a[2][1]*b[1][2]+a[2][2]*b[2][2]+a[2][3]*b[3][2],
+			a[2][0]*b[0][3]+a[2][1]*b[1][3]+a[2][2]*b[2][3]+a[2][3]*b[3][3]
+		], [
+			a[3][0]*b[0][0]+a[3][1]*b[1][0]+a[3][2]*b[2][0]+a[3][3]*b[3][0],
+			a[3][0]*b[0][1]+a[3][1]*b[1][1]+a[3][2]*b[2][1]+a[3][3]*b[3][1],
+			a[3][0]*b[0][2]+a[3][1]*b[1][2]+a[3][2]*b[2][2]+a[3][3]*b[3][2],
+			a[3][0]*b[0][3]+a[3][1]*b[1][3]+a[3][2]*b[2][3]+a[3][3]*b[3][3]
+		]])
 	}
 }
 
@@ -77,23 +112,32 @@ impl Mesh {
 /// The atom, the fundamental unit of a molecular viewer.
 struct Atom<'a> {
 	_mesh        : &'a Mesh,
-	_position    : Vertex,
+	_position    : [f32;3],
+	_size        : f32,
 	_body_matrix : Matrix,
 }
 
 impl<'a> Atom<'a> {
 	fn new (
 		in_mesh     : &'a Mesh,
-		in_position : &Vertex,
+		in_position : &[f32;3],
+		in_size     : &f32
 	) -> Atom<'a> {
 		Atom {
-			_mesh : in_mesh,
-			_position : in_position.to_owned(),
-			_body_matrix : Matrix::new([[1.0,0.0,0.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,1.0,0.0],[0.0,0.0,0.0,1.0]]),
+			_mesh        : in_mesh,
+			_position    : in_position.to_owned(),
+			_size        : in_size.to_owned(),
+			_body_matrix : Matrix::new([
+				[*in_size, 0.0     , 0.0     ,in_position[0]],
+				[0.0     , *in_size, 0.0     ,in_position[1]],
+				[0.0     , 0.0     , *in_size,in_position[2]],
+				[0.0     , 0.0     , 0.0     ,1.0]
+			]),
 		}
 	}
 	
 	fn mesh(&self) -> &Mesh {&self._mesh}
+	fn body_matrix(&self) -> &Matrix {&self._body_matrix}
 }
 
 // ==============================
@@ -111,8 +155,9 @@ impl<'a> Molecule<'a> {
 	fn add_atom(
 		&mut self,
 		in_mesh     : &'a Mesh,
-		in_position : &Vertex
-	) {self._atoms.push(Atom::new(in_mesh, in_position))}
+		in_position : &[f32;3],
+		in_size     : &f32,
+	) {self._atoms.push(Atom::new(in_mesh, in_position, in_size))}
 	
 	fn atoms(&self) -> &Vec<Atom> {&self._atoms}
 }
@@ -131,25 +176,32 @@ let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::Wind
 	implement_vertex!(Vertex, position);
 
 	// The positions of each vertex of the triangle
-	let vertex1 = Vertex::new([-0.5 , -0.5, 0.0]);
-	let vertex2 = Vertex::new([-0.5 ,  0.5, 0.0]);
-	let vertex3 = Vertex::new([-0.75,  0.0, 0.0]);
+	let vertex1 = Vertex::new([-1.0, -1.0, 0.0]);
+	let vertex2 = Vertex::new([-1.0,  1.0, 0.0]);
+	let vertex3 = Vertex::new([ 1.0,  0.0, 0.0]);
 	let triangle = Mesh::new(&display, &vec![vertex1, vertex2, vertex3], &vec![0, 1, 2u16]);
 
 	// The positions of each vertex of the square
-	let vertex4 = Vertex::new([-0.25, -0.25, 0.0]);
-	let vertex5 = Vertex::new([ 0.25, -0.25, 0.0]);
-	let vertex6 = Vertex::new([-0.25,  0.25, 0.0]);
-	let vertex7 = Vertex::new([ 0.25,  0.25, 0.0]);
+	let vertex4 = Vertex::new([-1.0, -1.0, 0.0]);
+	let vertex5 = Vertex::new([ 1.0, -1.0, 0.0]);
+	let vertex6 = Vertex::new([-1.0,  1.0, 0.0]);
+	let vertex7 = Vertex::new([ 1.0,  1.0, 0.0]);
 	let square = Mesh::new(&display, &vec![vertex4, vertex5, vertex6, vertex7], &vec![0, 1, 2, 3u16]);
 	
-	let position1 = Vertex::new([0.0, 0.0, 0.0]);
+	//let position1 = [0.0, 0.0, 0.0];
 	
-	let position2 = Vertex::new([0.0, 0.0, 0.0]);
+	//let position2 = [0.5, 0.0, 0.0];
 	
 	let mut molecule = Molecule::new();
-	molecule.add_atom(&triangle, &position1);
-	molecule.add_atom(&square, &position2);
+	molecule.add_atom(&triangle, &[ 0.0,  0.0, 0.0], &0.2);
+	molecule.add_atom(&triangle, &[ 0.5,  0.5, 0.0], &0.2);
+	molecule.add_atom(&triangle, &[ 0.5, -0.5, 0.0], &0.2);
+	molecule.add_atom(&triangle, &[-0.5,  0.5, 0.0], &0.2);
+	molecule.add_atom(&triangle, &[-0.5, -0.5, 0.0], &0.2);
+	molecule.add_atom(&square, &[ 0.5,  0.0, 0.0], &0.2);
+	molecule.add_atom(&square, &[-0.5,  0.0, 0.0], &0.2);
+	molecule.add_atom(&square, &[ 0.0,  0.5, 0.0], &0.2);
+	molecule.add_atom(&square, &[ 0.0, -0.5, 0.0], &0.2);
 	
 	// Vertex shader in OpenGL v140 (written in GLSL) 
 	let vertex_shader_src = r#"
@@ -177,18 +229,28 @@ let fragment_shader_src = r#"
 
 	let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 	
-	let view_matrix = [
+	let camera_matrix = Matrix::new([
 		[1.0, 0.0, 0.0, 0.0],
 		[0.0, 1.0, 0.0, 0.0],
 		[0.0, 0.0, 1.0, 0.0],
-		[0.0, 0.0, 0.0, 1.0f32]
-	];
+		[0.0, 0.0, 0.0, 1.0]
+	]);
+	
+	let perspective_matrix = Matrix::new([
+		[1.0, 0.0, 0.0, 0.0],
+		[0.0, 1.0, 0.0, 0.0],
+		[0.0, 0.0, 1.0, 0.0],
+		[0.0, 0.0, 0.0, 1.0]
+	]);
+	
+	let view_matrix = perspective_matrix*camera_matrix;
 	
 	loop {
-		let uniforms = uniform!{matrix: view_matrix};
 		let mut target = display.draw();
 		target.clear_color(0.93, 0.91, 0.835, 1.0);
 		for atom in molecule.atoms() {
+			let matrix = *atom.body_matrix() * view_matrix;
+			let uniforms = uniform!{matrix: matrix.contents().to_owned()};
 			target.draw(
 				atom.mesh().vertex_buffer(),
 				atom.mesh().index_buffer(),
