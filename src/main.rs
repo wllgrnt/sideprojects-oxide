@@ -23,7 +23,7 @@ impl Vertex {
 // ============================================================
 // Matrix
 // ============================================================
-// NB: OpenGL treats vectors as row vectors, so matrices must be transposed and multiplication reversed.
+// NB: OpenGL (maybe) treats vectors as row vectors, so matrices should be transposed and multiplication reversed?
 /// A 4x4 matrix for holding transformations.
 #[derive(Copy, Clone)]
 struct Matrix {
@@ -31,9 +31,9 @@ struct Matrix {
 }
 
 impl Matrix {
-	fn new(in_matrix : [[f32; 4]; 4]) -> Matrix {
+	fn new(in_contents : [[f32; 4]; 4]) -> Matrix {
 		Matrix {
-			_contents: in_matrix
+			_contents: in_contents
 		}
 	}
 	
@@ -169,6 +169,7 @@ impl<'a> Molecule<'a> {
 // ============================================================
 struct Camera {
 	_position           : [f32;3],
+	_focus              : [f32;3],
 	_field_of_view      : f32,
 	_near_plane         : f32,
 	_far_plane          : f32,
@@ -181,17 +182,11 @@ impl Camera {
 	fn new (
 		in_display       : &glium::backend::glutin_backend::GlutinFacade,
 		in_position      : &[f32;3],
+		in_focus         : &[f32;3],
 		in_field_of_view : &f32,
 		in_near_plane    : &f32,
 		in_far_plane     : &f32
 	) -> Camera {
-		
-		let camera_matrix = Matrix::new([
-			[1.0, 0.0, 0.0, -in_position[0]],
-			[0.0, 1.0, 0.0, -in_position[1]],
-			[0.0, 0.0, 1.0, -in_position[2]],
-			[0.0, 0.0, 0.0, 1.0]
-		]);
 		
 		let (w, h) = (*in_display).get_framebuffer_dimensions();
 		let mut w = w as f32;
@@ -210,22 +205,69 @@ impl Camera {
 		let perspective_matrix = Matrix::new([
 			[s/w, 0.0, 0.0    , 0.0      ],
 			[0.0, s/h, 0.0    , 0.0      ],
-			[0.0, 0.0, f/(n-f), f*n/(n-f)],
-			[0.0, 0.0, -1.0   , 0.0      ]
+			[0.0, 0.0, (f+n)/(f-n), 2.0*f*n/(n-f)],
+			[0.0, 0.0, 1.0   , 0.0      ]
 		]);
 		
-		Camera {
+		let mut camera = Camera {
 			_position           : in_position.to_owned(),
+			_focus              : in_focus.to_owned(),
 			_field_of_view      : in_field_of_view.to_owned(),
 			_near_plane         : in_near_plane.to_owned(),
 			_far_plane          : in_far_plane.to_owned(),
-			_camera_matrix      : camera_matrix,
+			_camera_matrix      : Matrix::new([[0.0;4];4]),
 			_perspective_matrix : perspective_matrix,
-			_view_matrix        : perspective_matrix * camera_matrix,
-		}
+			_view_matrix        : Matrix::new([[0.0;4];4]),
+		};
+		camera.update();
+		camera
 	}
 	
 	fn view_matrix(&self) -> &Matrix {&self._view_matrix}
+	
+	fn set_position(&mut self, in_position : [f32;3]) {self._position = in_position; self.update();}
+	
+	fn update(&mut self) {
+		let x = self._focus[0]-self._position[0];
+		let y = self._focus[1]-self._position[1];
+		let z = self._focus[2]-self._position[2];
+		
+		println!("position {} {} {}",self._position[0],self._position[1],self._position[2]);
+		
+		// theta is the orbital angle
+		let cos_theta = -z/(x*x+z*z).sqrt();
+		let sin_theta =  x/(x*x+z*z).sqrt();
+		let orbital_matrix = Matrix::new([
+			[ cos_theta, 0.0,-sin_theta, 0.0],
+			[ 0.0      , 1.0, 0.0      , 0.0],
+			[ sin_theta, 0.0, cos_theta, 0.0],
+			[ 0.0      , 0.0, 0.0      , 1.0]
+		]);
+		
+		// phi is the azimuthal angle
+		let cos_phi = (x*x+z*z).sqrt()/(x*x+y*y+z*z).sqrt();
+		let sin_phi = y/(x*x+y*y+z*z).sqrt();
+		let azimuthal_matrix = Matrix::new([
+			[1.0,  0.0    ,  0.0    , 0.0],
+			[0.0, -cos_phi, -sin_phi, 0.0],
+			[0.0,  sin_phi, -cos_phi, 0.0],
+			[0.0,  0.0    ,  0.0    , 1.0]
+		]);
+		
+		let translation_matrix = Matrix::new([
+			[1.0, 0.0, 0.0, -self._position[0]],
+			[0.0, 1.0, 0.0, -self._position[1]],
+			[0.0, 0.0, 1.0, -self._position[2]],
+			[0.0, 0.0, 0.0,  1.0              ]
+		]);
+		
+		self._camera_matrix = orbital_matrix*azimuthal_matrix*translation_matrix;
+		for i in 0..4 {
+			println!("{} {} {} {}",self._camera_matrix._contents[i][0],self._camera_matrix._contents[i][1],self._camera_matrix._contents[i][2],self._camera_matrix._contents[i][3])
+		}
+		println!("");
+		self._view_matrix = self._perspective_matrix*self._camera_matrix;
+	}
 }
 
 // ============================================================
@@ -267,7 +309,18 @@ fn main() {
 		&vec![0, 1, 2, 3u16]
 	);
 	
-	// A cube (will likely get wierd rounded edges because everything uses triangle strips
+	let tetrahedron = Mesh::new(
+		&display,
+		&vec![
+			Vertex::new([-1.0,  0.0, -0.7]),
+			Vertex::new([ 1.0,  0.0, -0.7]),
+			Vertex::new([ 0.0, -1.0,  0.7]),
+			Vertex::new([ 0.0,  1.0,  0.7]),
+		],
+		&vec![0, 1, 3, 2, 0, 1u16]
+	);
+	
+	// A cube (will likely get weird rounded edges because everything uses triangle strips
 	// This will mean surface normals get interpolated - not what you want for a cube.
 	let cube = Mesh::new(
 		&display,
@@ -283,9 +336,9 @@ fn main() {
 		],
 		&vec![
 			0, 1, 2, 3, // the -z face
-			6, 7,       // the y face
-			4, 5,       // the z face
-			0, 1u16     // the -y face
+			6, 7,       // the  y face
+			4, 5,       // the  z face
+			0, 1u16     // the -y face n.b. no +-x faces, because triangle strips don't really do corners.
 		]
 	);
 	
@@ -294,10 +347,10 @@ fn main() {
 	// ==============================
 	let mut molecule = Molecule::new();
 	molecule.add_atom(&cube, &[ 0.0,  0.0, 0.0], &0.2);
-	molecule.add_atom(&triangle, &[ 0.5,  0.5, 0.0], &0.2);
+	molecule.add_atom(&tetrahedron, &[ 0.5,  0.5, 0.0], &0.2);
 	molecule.add_atom(&triangle, &[ 0.5, -0.5, 0.0], &0.2);
 	molecule.add_atom(&triangle, &[-0.5,  0.5, 0.0], &0.2);
-	molecule.add_atom(&triangle, &[-0.5, -0.5, 0.0], &0.2);
+	molecule.add_atom(&tetrahedron, &[-0.5, -0.5, 0.0], &0.2);
 	molecule.add_atom(&square, &[ 0.5,  0.0, 0.0], &0.2);
 	molecule.add_atom(&square, &[-0.5,  0.0, 0.0], &0.2);
 	molecule.add_atom(&square, &[ 0.0,  0.5, 0.0], &0.2);
@@ -307,14 +360,16 @@ fn main() {
 	// Make camera
 	// ==============================
 	// camera position
-	let camera_position = [1.0,1.0,2.0];
+	let camera_position = [2.0,2.0,2.0];
+	// camera focus (the point the camera is pointing at)
+	let camera_focus = [0.0,0.0,0.0];
 	// field of view, in degrees
 	let field_of_view = 90.0;
 	// near and far clipping planes
 	let near_plane = 1.0;
 	let far_plane = 10.0;
 	
-	let camera = Camera::new(&display, &camera_position, &field_of_view, &near_plane, &far_plane);
+	let mut camera = Camera::new(&display, &camera_position, &camera_focus, &field_of_view, &near_plane, &far_plane);
 	
 	// ==============================
 	// Make shaders
@@ -348,11 +403,16 @@ fn main() {
 	// ==============================
 	// Run everything
 	// ==============================
+	let mut i = 0;
+	let spin_rate = 0.005;
 	loop {
+		let angle = (i as f32)*spin_rate;
+		camera.set_position([2.0*angle.cos(),0.3,2.0*angle.sin()]);
+		
 		let mut target = display.draw();
 		target.clear_color(0.93, 0.91, 0.835, 1.0);
 		for atom in molecule.atoms() {
-			let matrix = *atom.body_matrix() * *camera.view_matrix();
+			let matrix = *camera.view_matrix() * *atom.body_matrix();
 			let uniforms = uniform!{matrix: matrix.contents().to_owned()};
 			target.draw(
 				atom.mesh().vertex_buffer(),
@@ -370,5 +430,6 @@ fn main() {
 				_ => ()
 			}
 		}
+		i+=1;
 	}
 }
