@@ -19,6 +19,8 @@ Steps to making a visualiser:
 
 #### mj
 
+* Write 3d OpenGL... I've done it before, it's just a case of Rustifying it (and remembering it, since I'm on a different laptop...)
+
 #### mle
 
 * Write interface with some crystal file formats to plot shapes at the right coordinates
