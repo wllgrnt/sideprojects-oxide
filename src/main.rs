@@ -240,8 +240,6 @@ impl Camera {
 		let y = self._focus[1]-self._position[1];
 		let z = self._focus[2]-self._position[2];
 		
-		println!("position {} {} {}",self._position[0],self._position[1],self._position[2]);
-		
 		// theta is the orbital angle
 		let cos_theta =  z/(x*x+z*z).sqrt();
 		let sin_theta =  x/(x*x+z*z).sqrt();
@@ -269,11 +267,7 @@ impl Camera {
 			[0.0, 0.0, 0.0,  1.0              ]
 		]);
 		
-		self._camera_matrix = orbital_matrix*azimuthal_matrix*translation_matrix;
-		for i in 0..4 {
-			println!("{} {} {} {}",self._camera_matrix._contents[i][0],self._camera_matrix._contents[i][1],self._camera_matrix._contents[i][2],self._camera_matrix._contents[i][3])
-		}
-		println!("");
+		self._camera_matrix = azimuthal_matrix*orbital_matrix*translation_matrix;
 		self._view_matrix = self._perspective_matrix*self._camera_matrix;
 	}
 }
@@ -345,7 +339,7 @@ fn main() {
 	);
 	
 	// A cube (will likely get weird rounded edges because of normal interpolation.
-	// Different vertices should be used for different faces at each corner.
+	// Different vertices should be used for different faces at each corner. (not needed since atoms are spheres.)
 	// n.b. uses TrianglesList not TriangleStrip, because triangle strips don't do corners.
 	let cube = Mesh::new(
 		&display,
@@ -361,12 +355,12 @@ fn main() {
 		],
 		&glium::index::PrimitiveType::TrianglesList,
 		&vec![
-			0, 1, 2, 1, 2, 3,   // the -z face
-			2, 3, 6, 3, 6, 7,   // the  y face
-			4, 5, 6, 5, 6, 7,   // the  z face
-			2, 6, 7, 3, 6, 7,   // the -y face
-			1, 3, 5, 3, 5, 7,   // the  x face
-			0, 2, 4, 2, 4, 6u16 // the -x face
+			0, 2, 1, 3, 1, 2,   // the -z face
+			2, 6, 3, 7, 3, 6,   // the  y face
+			4, 5, 6, 7, 6, 5,   // the  z face
+			0, 1, 4, 5, 4, 1,   // the -y face
+			1, 3, 5, 7, 5, 3,   // the  x face
+			0, 4, 2, 6, 2, 4u16 // the -x face
 		]
 	);
 	
@@ -390,18 +384,26 @@ fn main() {
 		],
 		&glium::index::PrimitiveType::TrianglesList,
 		&vec![
-			0, 2, 8,
+			0, 8, 2,
 			0, 2, 9,
 			1, 3, 10,
-			1, 3, 11,
-			4, 6, 0,
+			1, 11, 3,
+			4, 0, 6,
 			4, 6, 1,
 			5, 7, 2,
-			5, 7, 3,
-			8, 10, 4,
+			5, 3, 7,
+			8, 4, 10,
 			8, 10, 5,
 			9, 11, 6,
-			9, 11, 7u16
+			9, 7, 11,
+			0, 4, 8,
+			0, 9, 6,
+			1, 10, 4,
+			1, 6, 11,
+			2, 8, 5,
+			2, 7, 9,
+			3, 5, 10,
+			3, 11, 7u16
 		]
 	);
 	
@@ -414,8 +416,8 @@ fn main() {
 	molecule.add_atom(&triangle, &[ 0.5, -0.5, 0.0], &0.2, &blue);
 	molecule.add_atom(&triangle, &[-0.5,  0.5, 0.0], &0.2, &blue);
 	molecule.add_atom(&tetrahedron, &[-0.5, -0.5, 0.0], &0.2, &green);
-	molecule.add_atom(&square, &[ 0.5,  0.0, 0.0], &0.2, &turquoise);
-	molecule.add_atom(&square, &[-0.5,  0.0, 0.0], &0.2, &turquoise);
+	molecule.add_atom(&square, &[ 0.5,  0.0, -0.5], &0.2, &turquoise);
+	molecule.add_atom(&square, &[-0.5,  0.0, -0.5], &0.2, &turquoise);
 	molecule.add_atom(&icosahedron, &[ 0.0,  0.5, 0.5], &0.2, &pink);
 	molecule.add_atom(&square, &[ 0.0, -0.5, 0.5], &0.2, &turquoise);
 	
@@ -423,7 +425,7 @@ fn main() {
 	// Make camera
 	// ==============================
 	// camera position
-	let camera_position = [2.0,2.0,2.0];
+	let camera_position = [0.0,0.0,2.0];
 	// camera focus (the point the camera is pointing at)
 	let camera_focus = [0.0,0.0,0.0];
 	// field of view, in degrees
@@ -473,22 +475,22 @@ fn main() {
 	// Run everything
 	// ==============================
 	let mut i = 0;
-	let spin_rate = 0.005;
+	let spin_rate = 0.001;
 	
 	// this probably wants to be somewhere in the loop.
 	let params = glium::DrawParameters {
-		depth: glium::Depth {
+		/*depth: glium::Depth {
 			test: glium::DepthTest::IfLess,
 			write: true,
 			.. Default::default()
-		},
+		},*/
+		backface_culling : glium::BackfaceCullingMode::CullCounterClockwise,
 		.. Default::default()
 	};
 	
 	loop {
 		let angle = (i as f32)*spin_rate;
 		camera.set_position([2.0*angle.cos(),0.0,2.0*angle.sin()]);
-		//camera.set_position([0.0,0.0,-2.0]);
 		
 		let mut target = display.draw();
 		target.clear_color(0.93, 0.91, 0.835, 1.0);
@@ -500,7 +502,8 @@ fn main() {
 				atom.mesh().index_buffer(),
 				&program,
 				&uniforms,
-				&Default::default(), // This should be params, but that's not working.
+				&params,
+				//&Default::default(), // This should be params, but that's not working.
 			).unwrap();
 		}
 		target.finish().unwrap();
