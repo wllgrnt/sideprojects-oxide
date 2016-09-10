@@ -115,6 +115,7 @@ struct Atom<'a> {
 	_mesh        : &'a Mesh,
 	_position    : [f32;3],
 	_size        : f32,
+	_colour      : [f32;3],
 	_body_matrix : Matrix,
 }
 
@@ -122,12 +123,14 @@ impl<'a> Atom<'a> {
 	fn new (
 		in_mesh     : &'a Mesh,
 		in_position : &[f32;3],
-		in_size     : &f32
+		in_size     : &f32,
+		in_colour   : &[f32;3],
 	) -> Atom<'a> {
 		Atom {
 			_mesh        : in_mesh,
 			_position    : in_position.to_owned(),
 			_size        : in_size.to_owned(),
+			_colour      : in_colour.to_owned(),
 			_body_matrix : Matrix::new([
 				[*in_size, 0.0     , 0.0     , in_position[0]],
 				[0.0     , *in_size, 0.0     , in_position[1]],
@@ -138,6 +141,7 @@ impl<'a> Atom<'a> {
 	}
 	
 	fn mesh(&self) -> &Mesh {&self._mesh}
+	fn colour(&self) -> &[f32;3] {&self._colour}
 	fn body_matrix(&self) -> &Matrix {&self._body_matrix}
 }
 
@@ -158,7 +162,8 @@ impl<'a> Molecule<'a> {
 		in_mesh     : &'a Mesh,
 		in_position : &[f32;3],
 		in_size     : &f32,
-	) {self._atoms.push(Atom::new(in_mesh, in_position, in_size))}
+		in_colour   : &[f32;3],
+	) {self._atoms.push(Atom::new(in_mesh, in_position, in_size, in_colour))}
 	
 	fn atoms(&self) -> &Vec<Atom> {&self._atoms}
 }
@@ -235,12 +240,12 @@ impl Camera {
 		println!("position {} {} {}",self._position[0],self._position[1],self._position[2]);
 		
 		// theta is the orbital angle
-		let cos_theta = -z/(x*x+z*z).sqrt();
+		let cos_theta =  z/(x*x+z*z).sqrt();
 		let sin_theta =  x/(x*x+z*z).sqrt();
 		let orbital_matrix = Matrix::new([
-			[ cos_theta, 0.0,-sin_theta, 0.0],
+			[ cos_theta, 0.0, sin_theta, 0.0],
 			[ 0.0      , 1.0, 0.0      , 0.0],
-			[ sin_theta, 0.0, cos_theta, 0.0],
+			[-sin_theta, 0.0, cos_theta, 0.0],
 			[ 0.0      , 0.0, 0.0      , 1.0]
 		]);
 		
@@ -249,8 +254,8 @@ impl Camera {
 		let sin_phi = y/(x*x+y*y+z*z).sqrt();
 		let azimuthal_matrix = Matrix::new([
 			[1.0,  0.0    ,  0.0    , 0.0],
-			[0.0, -cos_phi, -sin_phi, 0.0],
-			[0.0,  sin_phi, -cos_phi, 0.0],
+			[0.0,  cos_phi,  sin_phi, 0.0],
+			[0.0, -sin_phi,  cos_phi, 0.0],
 			[0.0,  0.0    ,  0.0    , 1.0]
 		]);
 		
@@ -284,7 +289,20 @@ fn main() {
 		.build_glium().unwrap();
 
 	implement_vertex!(Vertex, position);
-
+	
+	// ==============================
+	// Dark2
+	// ==============================
+	
+	let turquoise = [ 27.0/255.0,158.0/255.0,119.0/255.0];
+	let orange    = [217.0/255.0, 95.0/255.0,  2.0/255.0];
+	let blue      = [117.0/255.0,112.0/255.0,179.0/255.0];
+	let pink      = [231.0/255.0, 41.0/255.0,138.0/255.0];
+	let green     = [102.0/255.0,166.0/255.0, 30.0/255.0];
+	let yellow    = [230.0/255.0,171.0/255.0,  2.0/255.0];
+	let brown     = [166.0/255.0,118.0/255.0, 29.0/255.0];
+	let grey      = [102.0/255.0,102.0/255.0,102.0/255.0];
+	
 	// ==============================
 	// Make meshes
 	// ==============================
@@ -346,15 +364,15 @@ fn main() {
 	// Make molecule
 	// ==============================
 	let mut molecule = Molecule::new();
-	molecule.add_atom(&cube, &[ 0.0,  0.0, 0.0], &0.2);
-	molecule.add_atom(&tetrahedron, &[ 0.5,  0.5, 0.0], &0.2);
-	molecule.add_atom(&triangle, &[ 0.5, -0.5, 0.0], &0.2);
-	molecule.add_atom(&triangle, &[-0.5,  0.5, 0.0], &0.2);
-	molecule.add_atom(&tetrahedron, &[-0.5, -0.5, 0.0], &0.2);
-	molecule.add_atom(&square, &[ 0.5,  0.0, 0.0], &0.2);
-	molecule.add_atom(&square, &[-0.5,  0.0, 0.0], &0.2);
-	molecule.add_atom(&square, &[ 0.0,  0.5, 0.0], &0.2);
-	molecule.add_atom(&square, &[ 0.0, -0.5, 0.0], &0.2);
+	molecule.add_atom(&cube, &[ 0.0,  0.0, 0.0], &0.2, &orange);
+	molecule.add_atom(&tetrahedron, &[ 0.5,  0.5, 0.0], &0.2, &green);
+	molecule.add_atom(&triangle, &[ 0.5, -0.5, 0.0], &0.2, &blue);
+	molecule.add_atom(&triangle, &[-0.5,  0.5, 0.0], &0.2, &blue);
+	molecule.add_atom(&tetrahedron, &[-0.5, -0.5, 0.0], &0.2, &green);
+	molecule.add_atom(&square, &[ 0.5,  0.0, 0.0], &0.2, &turquoise);
+	molecule.add_atom(&square, &[-0.5,  0.0, 0.0], &0.2, &turquoise);
+	molecule.add_atom(&square, &[ 0.0,  0.5, 0.0], &0.2, &turquoise);
+	molecule.add_atom(&square, &[ 0.0, -0.5, 0.0], &0.2, &turquoise);
 	
 	// ==============================
 	// Make camera
@@ -379,22 +397,28 @@ fn main() {
 	#version 140
 	
 	uniform mat4 matrix;
+	uniform vec3 colour;
 	
 	in vec4 position;
+	
+	out vec3 fragmentColor;
 
 	void main() {
 		gl_Position = position*matrix;
+		fragmentColor = colour;
 	}
 	"#;
 
 	// Fragment/Pixel shader in OpenGL v140 (written in GLSL) 
 	let fragment_shader_src = r#"
 		#version 140
-
+		
+		in vec3 fragmentColor;
+		
 		out vec4 color;
 
 		void main() {
-			color = vec4(0.847, 0.359375, 0.007812, 1.0);
+			color = vec4((fragmentColor), 1.0);
 		}
 	"#;
 
@@ -407,13 +431,14 @@ fn main() {
 	let spin_rate = 0.005;
 	loop {
 		let angle = (i as f32)*spin_rate;
-		camera.set_position([2.0*angle.cos(),0.3,2.0*angle.sin()]);
+		//camera.set_position([2.0*angle.cos(),0.3,2.0*angle.sin()]);
+		camera.set_position([0.0,0.0,-2.0]);
 		
 		let mut target = display.draw();
 		target.clear_color(0.93, 0.91, 0.835, 1.0);
 		for atom in molecule.atoms() {
 			let matrix = *camera.view_matrix() * *atom.body_matrix();
-			let uniforms = uniform!{matrix: matrix.contents().to_owned()};
+			let uniforms = uniform!{matrix: matrix.contents().to_owned(), colour: atom.colour().to_owned()};
 			target.draw(
 				atom.mesh().vertex_buffer(),
 				atom.mesh().index_buffer(),
