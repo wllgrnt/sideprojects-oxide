@@ -479,11 +479,11 @@ fn main() {
 	
 	// this probably wants to be somewhere in the loop.
 	let params = glium::DrawParameters {
-		/*depth: glium::Depth {
+		depth: glium::Depth {
 			test: glium::DepthTest::IfLess,
 			write: true,
 			.. Default::default()
-		},*/
+		},
 		backface_culling : glium::BackfaceCullingMode::CullCounterClockwise,
 		.. Default::default()
 	};
@@ -493,7 +493,7 @@ fn main() {
 		camera.set_position([2.0*angle.cos(),0.0,2.0*angle.sin()]);
 		
 		let mut target = display.draw();
-		target.clear_color(0.93, 0.91, 0.835, 1.0);
+		target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
 		for atom in molecule.atoms() {
 			let matrix = *camera.view_matrix() * *atom.body_matrix();
 			let uniforms = uniform!{matrix: matrix.contents().to_owned(), colour: atom.colour().to_owned()};
