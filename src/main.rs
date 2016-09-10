@@ -79,6 +79,7 @@ struct Mesh {
 	/// The vertices of the triangles out of which the mesh is made
 	_vertices      : Vec<Vertex>,
 	/// The order in which the vertices should be drawn.
+	_index_type    : glium::index::PrimitiveType,
 	_indices       : Vec<u16>,
 	_vertex_buffer : glium::VertexBuffer<Vertex>,
 	_index_buffer  : glium::index::IndexBuffer<u16>,
@@ -86,17 +87,19 @@ struct Mesh {
 
 impl Mesh {
 	fn new (
-		in_display  : &glium::backend::glutin_backend::GlutinFacade,
-		in_vertices : &Vec<Vertex>,
-		in_indices  : &Vec<u16>,
+		in_display    : &glium::backend::glutin_backend::GlutinFacade,
+		in_vertices   : &Vec<Vertex>,
+		in_index_type : &glium::index::PrimitiveType,
+		in_indices    : &Vec<u16>,
 	) -> Mesh {
 		Mesh {
 			_vertices      : in_vertices.to_owned(),
+			_index_type    : in_index_type.to_owned(),
 			_indices       : in_indices.to_owned(),
 			_vertex_buffer : glium::VertexBuffer::new(in_display, in_vertices).unwrap(),
 			_index_buffer  : glium::index::IndexBuffer::new (
 				in_display,
-				glium::index::PrimitiveType::TriangleStrip,
+				*in_index_type,
 				in_indices,
 			).unwrap(),
 		}
@@ -243,9 +246,9 @@ impl Camera {
 		let cos_theta =  z/(x*x+z*z).sqrt();
 		let sin_theta =  x/(x*x+z*z).sqrt();
 		let orbital_matrix = Matrix::new([
-			[ cos_theta, 0.0, sin_theta, 0.0],
+			[ cos_theta, 0.0,-sin_theta, 0.0],
 			[ 0.0      , 1.0, 0.0      , 0.0],
-			[-sin_theta, 0.0, cos_theta, 0.0],
+			[ sin_theta, 0.0, cos_theta, 0.0],
 			[ 0.0      , 0.0, 0.0      , 1.0]
 		]);
 		
@@ -254,8 +257,8 @@ impl Camera {
 		let sin_phi = y/(x*x+y*y+z*z).sqrt();
 		let azimuthal_matrix = Matrix::new([
 			[1.0,  0.0    ,  0.0    , 0.0],
-			[0.0,  cos_phi,  sin_phi, 0.0],
-			[0.0, -sin_phi,  cos_phi, 0.0],
+			[0.0,  cos_phi, -sin_phi, 0.0],
+			[0.0,  sin_phi,  cos_phi, 0.0],
 			[0.0,  0.0    ,  0.0    , 1.0]
 		]);
 		
@@ -278,7 +281,7 @@ impl Camera {
 // ============================================================
 // Main Program
 // ============================================================
-/// Furnace - draw a triangle!
+/// Furnace - draw a molecule!
 fn main() {
 	// ==============================
 	// Make display
@@ -287,7 +290,7 @@ fn main() {
 	let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::WindowBuilder::new()
 		.with_title("Furnace: Molecular Visualisation".to_string())
 		.build_glium().unwrap();
-
+	
 	implement_vertex!(Vertex, position);
 	
 	// ==============================
@@ -313,6 +316,7 @@ fn main() {
 	let triangle = Mesh::new(
 		&display,
 		&vec![triangle_vertex0, triangle_vertex1, triangle_vertex2],
+		&glium::index::PrimitiveType::TriangleStrip,
 		&vec![0, 1, 2u16]
 	);
 
@@ -324,6 +328,7 @@ fn main() {
 	let square = Mesh::new(
 		&display,
 		&vec![square_vertex0, square_vertex1, square_vertex2, square_vertex3],
+		&glium::index::PrimitiveType::TriangleStrip,
 		&vec![0, 1, 2, 3u16]
 	);
 	
@@ -335,11 +340,13 @@ fn main() {
 			Vertex::new([ 0.0, -1.0,  0.7]),
 			Vertex::new([ 0.0,  1.0,  0.7]),
 		],
+		&glium::index::PrimitiveType::TriangleStrip,
 		&vec![0, 1, 3, 2, 0, 1u16]
 	);
 	
-	// A cube (will likely get weird rounded edges because everything uses triangle strips
-	// This will mean surface normals get interpolated - not what you want for a cube.
+	// A cube (will likely get weird rounded edges because of normal interpolation.
+	// Different vertices should be used for different faces at each corner.
+	// n.b. uses TrianglesList not TriangleStrip, because triangle strips don't do corners.
 	let cube = Mesh::new(
 		&display,
 		&vec![
@@ -352,11 +359,49 @@ fn main() {
 			Vertex::new([-1.0,  1.0,  1.0]),
 			Vertex::new([ 1.0,  1.0,  1.0])
 		],
+		&glium::index::PrimitiveType::TrianglesList,
 		&vec![
-			0, 1, 2, 3, // the -z face
-			6, 7,       // the  y face
-			4, 5,       // the  z face
-			0, 1u16     // the -y face n.b. no +-x faces, because triangle strips don't really do corners.
+			0, 1, 2, 1, 2, 3,   // the -z face
+			2, 3, 6, 3, 6, 7,   // the  y face
+			4, 5, 6, 5, 6, 7,   // the  z face
+			2, 6, 7, 3, 6, 7,   // the -y face
+			1, 3, 5, 3, 5, 7,   // the  x face
+			0, 2, 4, 2, 4, 6u16 // the -x face
+		]
+	);
+	
+	// An icosahedron
+	let phi = 2.0/(1.0+5.0f32.sqrt());
+	let icosahedron = Mesh::new(
+		&display,
+		&vec![
+			Vertex::new([ 0.0,  1.0,  phi]),
+			Vertex::new([ 0.0, -1.0,  phi]),
+			Vertex::new([ 0.0,  1.0, -phi]),
+			Vertex::new([ 0.0, -1.0, -phi]),
+			Vertex::new([ phi,  0.0,  1.0]),
+			Vertex::new([ phi,  0.0, -1.0]),
+			Vertex::new([-phi,  0.0,  1.0]),
+			Vertex::new([-phi,  0.0, -1.0]),
+			Vertex::new([ 1.0,  phi,  0.0]),
+			Vertex::new([-1.0,  phi,  0.0]),
+			Vertex::new([ 1.0, -phi,  0.0]),
+			Vertex::new([-1.0, -phi,  0.0]),
+		],
+		&glium::index::PrimitiveType::TrianglesList,
+		&vec![
+			0, 2, 8,
+			0, 2, 9,
+			1, 3, 10,
+			1, 3, 11,
+			4, 6, 0,
+			4, 6, 1,
+			5, 7, 2,
+			5, 7, 3,
+			8, 10, 4,
+			8, 10, 5,
+			9, 11, 6,
+			9, 11, 7u16
 		]
 	);
 	
@@ -371,8 +416,8 @@ fn main() {
 	molecule.add_atom(&tetrahedron, &[-0.5, -0.5, 0.0], &0.2, &green);
 	molecule.add_atom(&square, &[ 0.5,  0.0, 0.0], &0.2, &turquoise);
 	molecule.add_atom(&square, &[-0.5,  0.0, 0.0], &0.2, &turquoise);
-	molecule.add_atom(&square, &[ 0.0,  0.5, 0.0], &0.2, &turquoise);
-	molecule.add_atom(&square, &[ 0.0, -0.5, 0.0], &0.2, &turquoise);
+	molecule.add_atom(&icosahedron, &[ 0.0,  0.5, 0.5], &0.2, &pink);
+	molecule.add_atom(&square, &[ 0.0, -0.5, 0.5], &0.2, &turquoise);
 	
 	// ==============================
 	// Make camera
@@ -429,10 +474,21 @@ fn main() {
 	// ==============================
 	let mut i = 0;
 	let spin_rate = 0.005;
+	
+	// this probably wants to be somewhere in the loop.
+	let params = glium::DrawParameters {
+		depth: glium::Depth {
+			test: glium::DepthTest::IfLess,
+			write: true,
+			.. Default::default()
+		},
+		.. Default::default()
+	};
+	
 	loop {
 		let angle = (i as f32)*spin_rate;
-		//camera.set_position([2.0*angle.cos(),0.3,2.0*angle.sin()]);
-		camera.set_position([0.0,0.0,-2.0]);
+		camera.set_position([2.0*angle.cos(),0.0,2.0*angle.sin()]);
+		//camera.set_position([0.0,0.0,-2.0]);
 		
 		let mut target = display.draw();
 		target.clear_color(0.93, 0.91, 0.835, 1.0);
@@ -444,7 +500,7 @@ fn main() {
 				atom.mesh().index_buffer(),
 				&program,
 				&uniforms,
-				&Default::default()
+				&Default::default(), // This should be params, but that's not working.
 			).unwrap();
 		}
 		target.finish().unwrap();
