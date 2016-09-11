@@ -111,40 +111,60 @@ impl Mesh {
 
 
 // ============================================================
+// Species
+// ============================================================
+struct Species<'a> {
+	_mesh   : &'a Mesh,
+	_size   : f32,
+	_colour : [f32;3],
+}
+
+impl<'a> Species<'a> {
+	fn new (
+		in_mesh   : &'a Mesh,
+		in_size   : &f32,
+		in_colour : &[f32;3],
+	) -> Species<'a> {
+		Species {
+			_mesh   : in_mesh,
+			_size   : in_size.to_owned(),
+			_colour : in_colour.to_owned()
+		}
+	}
+	
+	fn mesh(&self) -> &Mesh {&self._mesh}
+	fn size(&self) -> &f32  {&self._size}
+	fn colour(&self) -> &[f32;3] {&self._colour}
+}
+
+// ============================================================
 // Atom
 // ============================================================
 /// The atom, the fundamental unit of a molecular viewer.
 struct Atom<'a> {
-	_mesh        : &'a Mesh,
+	_species     : &'a Species<'a>,
 	_position    : [f32;3],
-	_size        : f32,
-	_colour      : [f32;3],
 	_body_matrix : Matrix,
 }
 
 impl<'a> Atom<'a> {
 	fn new (
-		in_mesh     : &'a Mesh,
+		in_species  : &'a Species,
 		in_position : &[f32;3],
-		in_size     : &f32,
-		in_colour   : &[f32;3],
 	) -> Atom<'a> {
 		Atom {
-			_mesh        : in_mesh,
+			_species     : in_species,
 			_position    : in_position.to_owned(),
-			_size        : in_size.to_owned(),
-			_colour      : in_colour.to_owned(),
 			_body_matrix : Matrix::new([
-				[*in_size, 0.0     , 0.0     , in_position[0]],
-				[0.0     , *in_size, 0.0     , in_position[1]],
-				[0.0     , 0.0     , *in_size, in_position[2]],
-				[0.0     , 0.0     , 0.0     , 1.0           ]
+				[*in_species.size(), 0.0               , 0.0               , in_position[0]],
+				[0.0               , *in_species.size(), 0.0               , in_position[1]],
+				[0.0               , 0.0               , *in_species.size(), in_position[2]],
+				[0.0               , 0.0               , 0.0               , 1.0           ]
 			]),
 		}
 	}
 	
-	fn mesh(&self) -> &Mesh {&self._mesh}
-	fn colour(&self) -> &[f32;3] {&self._colour}
+	fn species(&self) -> &Species<'a> {&self._species}
 	fn body_matrix(&self) -> &Matrix {&self._body_matrix}
 }
 
@@ -162,11 +182,9 @@ impl<'a> Molecule<'a> {
 	
 	fn add_atom(
 		&mut self,
-		in_mesh     : &'a Mesh,
+		in_species  : &'a Species,
 		in_position : &[f32;3],
-		in_size     : &f32,
-		in_colour   : &[f32;3],
-	) {self._atoms.push(Atom::new(in_mesh, in_position, in_size, in_colour))}
+	) {self._atoms.push(Atom::new(in_species, in_position))}
 	
 	fn atoms(&self) -> &Vec<Atom> {&self._atoms}
 }
@@ -408,18 +426,31 @@ fn main() {
 	);
 	
 	// ==============================
+	// Make species
+	// ==============================
+	let carbon = Species::new(&cube, &0.1, &orange);
+	let nickel = Species::new(&tetrahedron, &0.2, &blue);
+	let sulphur = Species::new(&icosahedron, &0.4, &turquoise);
+	
+	// ==============================
 	// Make molecule
 	// ==============================
 	let mut molecule = Molecule::new();
-	molecule.add_atom(&cube, &[ 0.0,  0.0, 0.0], &0.2, &orange);
-	molecule.add_atom(&tetrahedron, &[ 0.5,  0.5, 0.0], &0.2, &green);
-	molecule.add_atom(&triangle, &[ 0.5, -0.5, 0.0], &0.2, &blue);
-	molecule.add_atom(&triangle, &[-0.5,  0.5, 0.0], &0.2, &blue);
-	molecule.add_atom(&tetrahedron, &[-0.5, -0.5, 0.0], &0.2, &green);
-	molecule.add_atom(&square, &[ 0.5,  0.0, -0.5], &0.2, &turquoise);
-	molecule.add_atom(&square, &[-0.5,  0.0, -0.5], &0.2, &turquoise);
-	molecule.add_atom(&icosahedron, &[ 0.0,  0.5, 0.5], &0.2, &pink);
-	molecule.add_atom(&square, &[ 0.0, -0.5, 0.5], &0.2, &turquoise);
+	molecule.add_atom(&sulphur, &[ 0.0,  0.0, 0.0]);
+	molecule.add_atom(&nickel, &[ 0.5,  0.5,  0.5]);
+	molecule.add_atom(&nickel, &[ 0.5, -0.5,  0.5]);
+	molecule.add_atom(&nickel, &[-0.5,  0.5,  0.5]);
+	molecule.add_atom(&nickel, &[-0.5, -0.5,  0.5]);
+	molecule.add_atom(&nickel, &[ 0.5,  0.5, -0.5]);
+	molecule.add_atom(&nickel, &[ 0.5, -0.5, -0.5]);
+	molecule.add_atom(&nickel, &[-0.5,  0.5, -0.5]);
+	molecule.add_atom(&nickel, &[-0.5, -0.5, -0.5]);
+	molecule.add_atom(&carbon, &[ 0.5,  0.0,  0.0]);
+	molecule.add_atom(&carbon, &[-0.5,  0.0,  0.0]);
+	molecule.add_atom(&carbon, &[ 0.0,  0.5,  0.0]);
+	molecule.add_atom(&carbon, &[ 0.0, -0.5,  0.0]);
+	molecule.add_atom(&carbon, &[ 0.0,  0.0,  0.5]);
+	molecule.add_atom(&carbon, &[ 0.0,  0.0, -0.5]);
 	
 	// ==============================
 	// Make camera
@@ -496,10 +527,10 @@ fn main() {
 		target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
 		for atom in molecule.atoms() {
 			let matrix = *camera.view_matrix() * *atom.body_matrix();
-			let uniforms = uniform!{matrix: matrix.contents().to_owned(), colour: atom.colour().to_owned()};
+			let uniforms = uniform!{matrix: matrix.contents().to_owned(), colour: atom.species().colour().to_owned()};
 			target.draw(
-				atom.mesh().vertex_buffer(),
-				atom.mesh().index_buffer(),
+				atom.species().mesh().vertex_buffer(),
+				atom.species().mesh().index_buffer(),
 				&program,
 				&uniforms,
 				&params,
