@@ -9,13 +9,15 @@ use std::ops::Mul; // multiplication overload
 // ============================================================
 #[derive(Copy, Clone)]
 struct Vertex {
-	position : [f32;4],
+	_position : [f32;4],
+	_normal   : [f32;4],
 }
 
 impl Vertex {
-	fn new(in_vertex : [f32; 3]) -> Vertex {
+	fn new(in_position : [f32; 3], in_normal : [f32;3]) -> Vertex {
 		Vertex {
-			position: [in_vertex[0],in_vertex[1],in_vertex[2],1.0]
+			_position : [in_position[0],in_position[1],in_position[2],1.0],
+			_normal   : [in_normal[0],in_normal[1],in_normal[2],0.0]
 		}
 	}
 }
@@ -41,7 +43,7 @@ impl Matrix {
 }
 
 // Matrix multiplication. TODO: use a linear algebra library.
-impl Mul for Matrix {
+impl Mul<Matrix> for Matrix {
 	type Output = Matrix;
 	
 	fn mul (self, in_other : Matrix) -> Matrix {
@@ -68,6 +70,21 @@ impl Mul for Matrix {
 			a[3][0]*b[0][2]+a[3][1]*b[1][2]+a[3][2]*b[2][2]+a[3][3]*b[3][2],
 			a[3][0]*b[0][3]+a[3][1]*b[1][3]+a[3][2]*b[2][3]+a[3][3]*b[3][3]
 		]])
+	}
+}
+
+impl Mul<[f32;4]> for Matrix {
+	type Output = [f32;4];
+	
+	fn mul (self, in_other : [f32;4]) -> [f32;4] {
+		let a : &[[f32;4];4] = &self._contents;
+		let b : &[f32;4] = &in_other;
+		[
+			a[0][0]*b[0]+a[0][1]*b[1]+a[0][2]*b[2]+a[0][3]*b[3],
+			a[1][0]*b[0]+a[1][1]*b[1]+a[1][2]*b[2]+a[1][3]*b[3],
+			a[2][0]*b[0]+a[2][1]*b[1]+a[2][2]*b[2]+a[2][3]*b[3],
+			a[3][0]*b[0]+a[3][1]*b[1]+a[3][2]*b[2]+a[3][3]*b[3]
+		]
 	}
 }
 
@@ -142,9 +159,9 @@ impl<'a> Species<'a> {
 // ============================================================
 /// The atom, the fundamental unit of a molecular viewer.
 struct Atom<'a> {
-	_species     : &'a Species<'a>,
-	_position    : [f32;3],
-	_body_matrix : Matrix,
+	_species      : &'a Species<'a>,
+	_position     : [f32;3],
+	_model_matrix : Matrix,
 }
 
 impl<'a> Atom<'a> {
@@ -153,9 +170,9 @@ impl<'a> Atom<'a> {
 		in_position : &[f32;3],
 	) -> Atom<'a> {
 		Atom {
-			_species     : in_species,
-			_position    : in_position.to_owned(),
-			_body_matrix : Matrix::new([
+			_species      : in_species,
+			_position     : in_position.to_owned(),
+			_model_matrix : Matrix::new([
 				[*in_species.size(), 0.0               , 0.0               , in_position[0]],
 				[0.0               , *in_species.size(), 0.0               , in_position[1]],
 				[0.0               , 0.0               , *in_species.size(), in_position[2]],
@@ -165,7 +182,7 @@ impl<'a> Atom<'a> {
 	}
 	
 	fn species(&self) -> &Species<'a> {&self._species}
-	fn body_matrix(&self) -> &Matrix {&self._body_matrix}
+	fn model_matrix(&self) -> &Matrix {&self._model_matrix}
 }
 
 // ============================================================
@@ -199,9 +216,9 @@ struct Camera {
 	_field_of_view      : f32,
 	_near_plane         : f32,
 	_far_plane          : f32,
-	_camera_matrix      : Matrix,
-	_perspective_matrix : Matrix,
 	_view_matrix        : Matrix,
+	_perspective_matrix : Matrix,
+	_vp_matrix          : Matrix,
 }
 
 impl Camera {
@@ -241,15 +258,16 @@ impl Camera {
 			_field_of_view      : in_field_of_view.to_owned(),
 			_near_plane         : in_near_plane.to_owned(),
 			_far_plane          : in_far_plane.to_owned(),
-			_camera_matrix      : Matrix::new([[0.0;4];4]),
-			_perspective_matrix : perspective_matrix,
 			_view_matrix        : Matrix::new([[0.0;4];4]),
+			_perspective_matrix : perspective_matrix,
+			_vp_matrix          : Matrix::new([[0.0;4];4]),
 		};
 		camera.update();
 		camera
 	}
 	
 	fn view_matrix(&self) -> &Matrix {&self._view_matrix}
+	fn vp_matrix(&self) -> &Matrix {&self._vp_matrix}
 	
 	fn set_position(&mut self, in_position : [f32;3]) {self._position = in_position; self.update();}
 	
@@ -285,10 +303,15 @@ impl Camera {
 			[0.0, 0.0, 0.0,  1.0              ]
 		]);
 		
-		self._camera_matrix = azimuthal_matrix*orbital_matrix*translation_matrix;
-		self._view_matrix = self._perspective_matrix*self._camera_matrix;
+		self._view_matrix = azimuthal_matrix*orbital_matrix*translation_matrix;
+		self._vp_matrix = self._perspective_matrix*self._view_matrix;
 	}
 }
+
+
+// ============================================================
+// Light
+// ============================================================
 
 // ============================================================
 // Main Program
@@ -303,7 +326,7 @@ fn main() {
 		.with_title("Furnace: Molecular Visualisation".to_string())
 		.build_glium().unwrap();
 	
-	implement_vertex!(Vertex, position);
+	implement_vertex!(Vertex, _position, _normal);
 	
 	// ==============================
 	// Dark2
@@ -321,10 +344,12 @@ fn main() {
 	// ==============================
 	// Make meshes
 	// ==============================
+	let sr_1_2 = 1.0/2.0f32.sqrt();
+	
 	// The positions of each vertex of the triangle
-	let triangle_vertex0 = Vertex::new([-1.0, -1.0, 0.0]);
-	let triangle_vertex1 = Vertex::new([-1.0,  1.0, 0.0]);
-	let triangle_vertex2 = Vertex::new([ 1.0,  0.0, 0.0]);
+	let triangle_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [-sr_1_2, -sr_1_2, 0.0]);
+	let triangle_vertex1 = Vertex::new([-1.0,  1.0, 0.0], [-sr_1_2,  sr_1_2, 0.0]);
+	let triangle_vertex2 = Vertex::new([ 1.0,  0.0, 0.0], [ 1.0   ,  0.0   , 0.0]);
 	let triangle = Mesh::new(
 		&display,
 		&vec![triangle_vertex0, triangle_vertex1, triangle_vertex2],
@@ -333,10 +358,10 @@ fn main() {
 	);
 
 	// The positions of each vertex of the square
-	let square_vertex0 = Vertex::new([-1.0, -1.0, 0.0]);
-	let square_vertex1 = Vertex::new([ 1.0, -1.0, 0.0]);
-	let square_vertex2 = Vertex::new([-1.0,  1.0, 0.0]);
-	let square_vertex3 = Vertex::new([ 1.0,  1.0, 0.0]);
+	let square_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [-1.0, -1.0, 0.0]);
+	let square_vertex1 = Vertex::new([ 1.0, -1.0, 0.0], [ 1.0, -1.0, 0.0]);
+	let square_vertex2 = Vertex::new([-1.0,  1.0, 0.0], [-1.0,  1.0, 0.0]);
+	let square_vertex3 = Vertex::new([ 1.0,  1.0, 0.0], [ 1.0,  1.0, 0.0]);
 	let square = Mesh::new(
 		&display,
 		&vec![square_vertex0, square_vertex1, square_vertex2, square_vertex3],
@@ -347,10 +372,10 @@ fn main() {
 	let tetrahedron = Mesh::new(
 		&display,
 		&vec![
-			Vertex::new([-1.0,  0.0, -0.7]),
-			Vertex::new([ 1.0,  0.0, -0.7]),
-			Vertex::new([ 0.0, -1.0,  0.7]),
-			Vertex::new([ 0.0,  1.0,  0.7]),
+			Vertex::new([-1.0,  0.0, -sr_1_2],[-1.0,  0.0, -sr_1_2]),
+			Vertex::new([ 1.0,  0.0, -sr_1_2],[ 1.0,  0.0, -sr_1_2]),
+			Vertex::new([ 0.0, -1.0,  sr_1_2],[ 0.0, -1.0,  sr_1_2]),
+			Vertex::new([ 0.0,  1.0,  sr_1_2],[ 0.0,  1.0,  sr_1_2]),
 		],
 		&glium::index::PrimitiveType::TriangleStrip,
 		&vec![0, 1, 3, 2, 0, 1u16]
@@ -362,14 +387,14 @@ fn main() {
 	let cube = Mesh::new(
 		&display,
 		&vec![
-			Vertex::new([-1.0, -1.0, -1.0]),
-			Vertex::new([ 1.0, -1.0, -1.0]),
-			Vertex::new([-1.0,  1.0, -1.0]),
-			Vertex::new([ 1.0,  1.0, -1.0]),
-			Vertex::new([-1.0, -1.0,  1.0]),
-			Vertex::new([ 1.0, -1.0,  1.0]),
-			Vertex::new([-1.0,  1.0,  1.0]),
-			Vertex::new([ 1.0,  1.0,  1.0])
+			Vertex::new([-1.0, -1.0, -1.0],[-1.0, -1.0, -1.0]),
+			Vertex::new([ 1.0, -1.0, -1.0],[ 1.0, -1.0, -1.0]),
+			Vertex::new([-1.0,  1.0, -1.0],[-1.0,  1.0, -1.0]),
+			Vertex::new([ 1.0,  1.0, -1.0],[ 1.0,  1.0, -1.0]),
+			Vertex::new([-1.0, -1.0,  1.0],[-1.0, -1.0,  1.0]),
+			Vertex::new([ 1.0, -1.0,  1.0],[ 1.0, -1.0,  1.0]),
+			Vertex::new([-1.0,  1.0,  1.0],[-1.0,  1.0,  1.0]),
+			Vertex::new([ 1.0,  1.0,  1.0],[ 1.0,  1.0,  1.0])
 		],
 		&glium::index::PrimitiveType::TrianglesList,
 		&vec![
@@ -387,18 +412,18 @@ fn main() {
 	let icosahedron = Mesh::new(
 		&display,
 		&vec![
-			Vertex::new([ 0.0,  1.0,  phi]),
-			Vertex::new([ 0.0, -1.0,  phi]),
-			Vertex::new([ 0.0,  1.0, -phi]),
-			Vertex::new([ 0.0, -1.0, -phi]),
-			Vertex::new([ phi,  0.0,  1.0]),
-			Vertex::new([ phi,  0.0, -1.0]),
-			Vertex::new([-phi,  0.0,  1.0]),
-			Vertex::new([-phi,  0.0, -1.0]),
-			Vertex::new([ 1.0,  phi,  0.0]),
-			Vertex::new([-1.0,  phi,  0.0]),
-			Vertex::new([ 1.0, -phi,  0.0]),
-			Vertex::new([-1.0, -phi,  0.0]),
+			Vertex::new([ 0.0,  1.0,  phi],[ 0.0,  1.0,  phi]),
+			Vertex::new([ 0.0, -1.0,  phi],[ 0.0, -1.0,  phi]),
+			Vertex::new([ 0.0,  1.0, -phi],[ 0.0,  1.0, -phi]),
+			Vertex::new([ 0.0, -1.0, -phi],[ 0.0, -1.0, -phi]),
+			Vertex::new([ phi,  0.0,  1.0],[ phi,  0.0,  1.0]),
+			Vertex::new([ phi,  0.0, -1.0],[ phi,  0.0, -1.0]),
+			Vertex::new([-phi,  0.0,  1.0],[-phi,  0.0,  1.0]),
+			Vertex::new([-phi,  0.0, -1.0],[-phi,  0.0, -1.0]),
+			Vertex::new([ 1.0,  phi,  0.0],[ 1.0,  phi,  0.0]),
+			Vertex::new([-1.0,  phi,  0.0],[-1.0,  phi,  0.0]),
+			Vertex::new([ 1.0, -phi,  0.0],[ 1.0, -phi,  0.0]),
+			Vertex::new([-1.0, -phi,  0.0],[-1.0, -phi,  0.0]),
 		],
 		&glium::index::PrimitiveType::TrianglesList,
 		&vec![
@@ -472,41 +497,71 @@ fn main() {
 	// ==============================
 	// Vertex shader in OpenGL v140 (written in GLSL) 
 	let vertex_shader_src = r#"
-	#version 140
+		#version 140
+		
+		uniform mat4 mv_matrix;
+		uniform mat4 mvp_matrix;
+		uniform vec3 colour;
+		uniform vec4 light_position;
 	
-	uniform mat4 matrix;
-	uniform vec3 colour;
+		in vec4 _position;
+		in vec4 _normal;
 	
-	in vec4 position;
+		out vec3 fragment_colour;
+		out vec3 fragment_normal;
+		out vec3 fragment_light_vector;
 	
-	out vec3 fragmentColor;
-
-	void main() {
-		gl_Position = position*matrix;
-		fragmentColor = colour;
-	}
+		void main() {
+			vec4 position = _position*mv_matrix;
+			vec4 normal = normalize(_normal*mv_matrix);
+			vec4 light_vector = light_position-position;
+			
+			fragment_colour = colour;
+			fragment_normal = vec3(normal[0],normal[1],normal[2]);
+			fragment_light_vector = vec3(light_vector[0],light_vector[1],light_vector[2]);
+			
+			gl_Position = _position*mvp_matrix;
+		}
 	"#;
 
 	// Fragment/Pixel shader in OpenGL v140 (written in GLSL) 
 	let fragment_shader_src = r#"
 		#version 140
 		
-		in vec3 fragmentColor;
+		in vec3 fragment_colour;
+		in vec3 fragment_normal;
+		in vec3 fragment_light_vector;
 		
 		out vec4 color;
-
+		
 		void main() {
-			color = vec4((fragmentColor), 1.0);
+			float normal_squared = dot(fragment_normal,fragment_normal);
+			float light_distance_squared = dot(fragment_light_vector,fragment_light_vector);
+			float cos_light_angle = clamp (
+				dot(fragment_normal,fragment_light_vector) 
+					* inversesqrt(light_distance_squared*normal_squared),
+				0,
+				1
+			);
+			vec3 colour = fragment_colour*(cos_light_angle/light_distance_squared+0.2);
+			 color = vec4((colour), 1.0);
+			// color = vec4((fragment_light_vector),1.0);
+			// color = vec4(fragment_normal,1.0);
 		}
 	"#;
 
-	let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
+	let program = glium::Program::from_source(
+		&display,
+		vertex_shader_src,
+		fragment_shader_src,
+		None
+	).unwrap();
 	
 	// ==============================
 	// Run everything
 	// ==============================
 	let mut i = 0;
-	let spin_rate = 0.001;
+	let spin_rate = 0.0005;
 	
 	// this probably wants to be somewhere in the loop.
 	let params = glium::DrawParameters {
@@ -519,15 +574,24 @@ fn main() {
 		.. Default::default()
 	};
 	
+	let light_position = [3.0,0.5,0.0,1.0f32];
+	
 	loop {
 		let angle = (i as f32)*spin_rate;
 		camera.set_position([2.0*angle.cos(),0.0,2.0*angle.sin()]);
 		
+		let light_position = *camera.view_matrix() * light_position;
+		
 		let mut target = display.draw();
 		target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
 		for atom in molecule.atoms() {
-			let matrix = *camera.view_matrix() * *atom.body_matrix();
-			let uniforms = uniform!{matrix: matrix.contents().to_owned(), colour: atom.species().colour().to_owned()};
+			let mvp_matrix = *camera.vp_matrix() * *atom.model_matrix();
+			let uniforms = uniform!{
+				mv_matrix      : (*camera.vp_matrix()).contents().to_owned(),
+				mvp_matrix     : mvp_matrix.contents().to_owned(),
+				colour         : atom.species().colour().to_owned(),
+				light_position : light_position
+			};
 			target.draw(
 				atom.species().mesh().vertex_buffer(),
 				atom.species().mesh().index_buffer(),
