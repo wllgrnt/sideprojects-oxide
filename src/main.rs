@@ -183,6 +183,37 @@ impl<'a> Atom<'a> {
 	
 	fn species(&self) -> &Species<'a> {&self._species}
 	fn model_matrix(&self) -> &Matrix {&self._model_matrix}
+	
+	fn rotate_against_camera(&mut self, in_angles : &[f32;4]) {
+		
+		let cos_theta = in_angles[0];
+		let sin_theta = in_angles[1];
+		let cos_phi = in_angles[2];
+		let sin_phi = in_angles[3];
+		
+		let translation_and_scaling_matrix = Matrix::new([
+				[*self._species.size(), 0.0                  , 0.0                  , self._position[0]],
+				[0.0                  , *self._species.size(), 0.0                  , self._position[1]],
+				[0.0                  , 0.0                  , *self._species.size(), self._position[2]],
+				[0.0                  , 0.0                  , 0.0                  , 1.0              ]
+		]);
+		
+		let orbital_matrix = Matrix::new([
+			[ cos_theta, 0.0, sin_theta, 0.0],
+			[ 0.0      , 1.0, 0.0      , 0.0],
+			[-sin_theta, 0.0, cos_theta, 0.0],
+			[ 0.0      , 0.0, 0.0      , 1.0]
+		]);
+		
+		let azimuthal_matrix = Matrix::new([
+			[1.0,  0.0    ,  0.0    , 0.0],
+			[0.0,  cos_phi,  sin_phi, 0.0],
+			[0.0, -sin_phi,  cos_phi, 0.0],
+			[0.0,  0.0    ,  0.0    , 1.0]
+		]);
+		
+		self._model_matrix = translation_and_scaling_matrix * orbital_matrix * azimuthal_matrix;
+	}
 }
 
 // ============================================================
@@ -204,6 +235,10 @@ impl<'a> Molecule<'a> {
 	) {self._atoms.push(Atom::new(in_species, in_position))}
 	
 	fn atoms(&self) -> &Vec<Atom> {&self._atoms}
+	
+	fn rotate_atom_against_camera(&mut self, in_id : &usize, in_angles : &[f32;4]) {
+		self._atoms[*in_id].rotate_against_camera(in_angles);
+	}
 }
 
 
@@ -216,6 +251,7 @@ struct Camera {
 	_field_of_view      : f32,
 	_near_plane         : f32,
 	_far_plane          : f32,
+	_angles             : [f32;4],
 	_view_matrix        : Matrix,
 	_perspective_matrix : Matrix,
 	_vp_matrix          : Matrix,
@@ -258,14 +294,16 @@ impl Camera {
 			_field_of_view      : in_field_of_view.to_owned(),
 			_near_plane         : in_near_plane.to_owned(),
 			_far_plane          : in_far_plane.to_owned(),
-			_view_matrix        : Matrix::new([[0.0;4];4]),
+			_angles             : [0.0;4],                    // dummy value
+			_view_matrix        : Matrix::new([[0.0;4];4]),   // dummy value
 			_perspective_matrix : perspective_matrix,
-			_vp_matrix          : Matrix::new([[0.0;4];4]),
+			_vp_matrix          : Matrix::new([[0.0;4];4]),   // dummy value
 		};
 		camera.update();
 		camera
 	}
 	
+	fn angles(&self) -> &[f32;4] {&self._angles}
 	fn view_matrix(&self) -> &Matrix {&self._view_matrix}
 	fn vp_matrix(&self) -> &Matrix {&self._vp_matrix}
 	
@@ -303,6 +341,7 @@ impl Camera {
 			[0.0, 0.0, 0.0,  1.0              ]
 		]);
 		
+		self._angles = [cos_theta, sin_theta, cos_phi, sin_phi];
 		self._view_matrix = azimuthal_matrix*orbital_matrix*translation_matrix;
 		self._vp_matrix = self._perspective_matrix*self._view_matrix;
 	}
@@ -366,7 +405,7 @@ fn main() {
 		&display,
 		&vec![square_vertex0, square_vertex1, square_vertex2, square_vertex3],
 		&glium::index::PrimitiveType::TriangleStrip,
-		&vec![0, 1, 2, 3u16]
+		&vec![0, 2, 1, 3u16]
 	);
 	
 	let tetrahedron = Mesh::new(
@@ -453,6 +492,7 @@ fn main() {
 	// ==============================
 	// Make species
 	// ==============================
+	let unobtanium = Species::new(&square, &0.3, &brown);
 	let carbon = Species::new(&cube, &0.1, &orange);
 	let nickel = Species::new(&tetrahedron, &0.2, &blue);
 	let sulphur = Species::new(&icosahedron, &0.4, &turquoise);
@@ -461,6 +501,7 @@ fn main() {
 	// Make molecule
 	// ==============================
 	let mut molecule = Molecule::new();
+	molecule.add_atom(&unobtanium, &[ 0.0,  1.5, 0.0]);
 	molecule.add_atom(&sulphur, &[ 0.0,  0.0, 0.0]);
 	molecule.add_atom(&nickel, &[ 0.5,  0.5,  0.5]);
 	molecule.add_atom(&nickel, &[ 0.5, -0.5,  0.5]);
@@ -579,6 +620,8 @@ fn main() {
 	loop {
 		let angle = (i as f32)*spin_rate;
 		camera.set_position([2.0*angle.cos(),0.0,2.0*angle.sin()]);
+		
+		molecule.rotate_atom_against_camera(&0,camera.angles());
 		
 		let light_position = *camera.view_matrix() * light_position;
 		
