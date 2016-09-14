@@ -607,7 +607,7 @@ fn main() {
 	// Run everything
 	// ==============================
 	let mut i = 0;
-	let spin_rate = 0.0005;
+	let spin_rate = 0.005;
 	
 	// this probably wants to be somewhere in the loop.
 	let params = glium::DrawParameters {
@@ -621,7 +621,9 @@ fn main() {
 	};
 	
 	let light_position = [3.0,0.5,0.0,1.0f32];
-	
+
+    let mut rotating = true;
+
 	loop {
 		let angle = (i as f32)*spin_rate;
 		camera.set_position([2.0*angle.cos(),0.0,2.0*angle.sin()]);
@@ -653,9 +655,13 @@ fn main() {
 		for ev in display.poll_events() {
 			match ev {
 				glium::glutin::Event::Closed => return,
+                glium::glutin::Event::KeyboardInput(glium::glutin::ElementState::Pressed, _, Some(glium::glutin::VirtualKeyCode::Space)) => {
+                    rotating = !rotating;
+                    println!("Rotation is now {}", if rotating { "on" } else { "off" });
+                },
 				_ => ()
 			}
 		}
-		i+=1;
+        if rotating { i +=1 };
 	}
 }
