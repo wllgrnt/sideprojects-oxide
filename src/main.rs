@@ -92,23 +92,25 @@ impl Mul<[f32;4]> for Matrix {
 // Mesh
 // ============================================================
 /// The mesh of a single object (a triangle, a sphere, a goove...)
-struct Mesh {
+struct Mesh<'a> {
 	/// The vertices of the triangles out of which the mesh is made
-	_vertices      : Vec<Vertex>,
+	_vertices        : Vec<Vertex>,
 	/// The order in which the vertices should be drawn.
-	_index_type    : glium::index::PrimitiveType,
-	_indices       : Vec<u16>,
-	_vertex_buffer : glium::VertexBuffer<Vertex>,
-	_index_buffer  : glium::index::IndexBuffer<u16>,
+	_index_type      : glium::index::PrimitiveType,
+	_indices         : Vec<u16>,
+	_program         : &'a glium::Program,
+	_vertex_buffer   : glium::VertexBuffer<Vertex>,
+	_index_buffer    : glium::index::IndexBuffer<u16>,
 }
 
-impl Mesh {
+impl<'a> Mesh<'a> {
 	fn new (
 		in_display    : &glium::backend::glutin_backend::GlutinFacade,
 		in_vertices   : &Vec<Vertex>,
 		in_index_type : &glium::index::PrimitiveType,
 		in_indices    : &Vec<u16>,
-	) -> Mesh {
+		in_program    : &'a glium::Program,
+	) -> Mesh<'a> {
 		Mesh {
 			_vertices      : in_vertices.to_owned(),
 			_index_type    : in_index_type.to_owned(),
@@ -119,11 +121,13 @@ impl Mesh {
 				*in_index_type,
 				in_indices,
 			).unwrap(),
+			_program       : in_program,
 		}
 	}
 	
 	fn vertex_buffer(&self) -> &glium::VertexBuffer<Vertex> {&self._vertex_buffer}
 	fn index_buffer(&self) -> &glium::index::IndexBuffer<u16> {&self._index_buffer}
+	fn program(&self) -> &glium::Program {&self._program}
 }
 
 
@@ -131,7 +135,7 @@ impl Mesh {
 // Species
 // ============================================================
 struct Species<'a> {
-	_mesh   : &'a Mesh,
+	_mesh   : &'a Mesh<'a>,
 	_size   : f32,
 	_colour : [f32;3],
 }
@@ -381,6 +385,67 @@ fn main() {
 	let grey      = [102.0/255.0,102.0/255.0,102.0/255.0];
 	
 	// ==============================
+	// Make shaders
+	// ==============================
+	// Vertex shader in OpenGL v140 (written in GLSL) 
+	let vertex_shader_src : &'static str = r#"
+		#version 140
+		
+		uniform mat4 mv_matrix;
+		uniform mat4 mvp_matrix;
+		uniform vec4 light_position;
+	
+		in vec4 _position;
+		in vec4 _normal;
+		
+		out vec3 fragment_normal;
+		out vec3 fragment_light_vector;
+	
+		void main() {
+			vec4 position = _position*mv_matrix;
+			vec4 normal = normalize(_normal*mv_matrix);
+			vec4 light_vector = light_position-position;
+			
+			fragment_normal = vec3(normal[0],normal[1],normal[2]);
+			fragment_light_vector = vec3(light_vector[0],light_vector[1],light_vector[2]);
+			
+			gl_Position = _position*mvp_matrix;
+		}
+	"#;
+
+	// Fragment/Pixel shader in OpenGL v140 (written in GLSL) 
+	let fragment_shader_src : &'static str = r#"
+		#version 140
+		
+		uniform vec3 colour;
+		
+		in vec3 fragment_normal;
+		in vec3 fragment_light_vector;
+		
+		out vec4 color;
+		
+		void main() {
+			float normal_squared = dot(fragment_normal,fragment_normal);
+			float light_distance_squared = dot(fragment_light_vector,fragment_light_vector);
+			float cos_light_angle = clamp (
+				dot(fragment_normal,fragment_light_vector) 
+					* inversesqrt(light_distance_squared*normal_squared),
+				0,
+				1
+			);
+			vec3 colour3 = colour*(cos_light_angle/light_distance_squared+0.2);
+			color = vec4((colour3), 1.0);
+		}
+	"#;
+
+	let program : glium::Program = glium::Program::from_source(
+		&display,
+		vertex_shader_src,
+		fragment_shader_src,
+		None
+	).unwrap();
+	
+	// ==============================
 	// Make meshes
 	// ==============================
 	let sr_1_2 = 1.0/2.0f32.sqrt();
@@ -393,7 +458,8 @@ fn main() {
 		&display,
 		&vec![triangle_vertex0, triangle_vertex1, triangle_vertex2],
 		&glium::index::PrimitiveType::TriangleStrip,
-		&vec![0, 1, 2u16]
+		&vec![0, 1, 2u16],
+		&program,
 	);
 
 	// The positions of each vertex of the square
@@ -405,7 +471,8 @@ fn main() {
 		&display,
 		&vec![square_vertex0, square_vertex1, square_vertex2, square_vertex3],
 		&glium::index::PrimitiveType::TriangleStrip,
-		&vec![0, 2, 1, 3u16]
+		&vec![0, 2, 1, 3u16],
+		&program,
 	);
 	
 	let tetrahedron = Mesh::new(
@@ -417,7 +484,8 @@ fn main() {
 			Vertex::new([ 0.0,  1.0,  sr_1_2],[ 0.0,  1.0,  sr_1_2]),
 		],
 		&glium::index::PrimitiveType::TriangleStrip,
-		&vec![0, 1, 3, 2, 0, 1u16]
+		&vec![0, 1, 3, 2, 0, 1u16],
+		&program,
 	);
 	
 	// A cube (will likely get weird rounded edges because of normal interpolation.
@@ -443,7 +511,8 @@ fn main() {
 			0, 1, 4, 5, 4, 1,   // the -y face
 			1, 3, 5, 7, 5, 3,   // the  x face
 			0, 4, 2, 6, 2, 4u16 // the -x face
-		]
+		],
+		&program,
 	);
 	
 	// An icosahedron
@@ -486,7 +555,8 @@ fn main() {
 			2, 7, 9,
 			3, 5, 10,
 			3, 11, 7u16
-		]
+		],
+		&program,
 	);
 	
 	// ==============================
@@ -501,7 +571,7 @@ fn main() {
 	// Make molecule
 	// ==============================
 	let mut molecule = Molecule::new();
-	molecule.add_atom(&unobtanium, &[ 0.0,  1.5, 0.0]);
+	molecule.add_atom(&unobtanium, &[ 1.0,  1.0, 0.0]);
 	molecule.add_atom(&sulphur, &[ 0.0,  0.0, 0.0]);
 	molecule.add_atom(&nickel, &[ 0.5,  0.5,  0.5]);
 	molecule.add_atom(&nickel, &[ 0.5, -0.5,  0.5]);
@@ -532,71 +602,6 @@ fn main() {
 	let far_plane = 10.0;
 	
 	let mut camera = Camera::new(&display, &camera_position, &camera_focus, &field_of_view, &near_plane, &far_plane);
-	
-	// ==============================
-	// Make shaders
-	// ==============================
-	// Vertex shader in OpenGL v140 (written in GLSL) 
-	let vertex_shader_src = r#"
-		#version 140
-		
-		uniform mat4 mv_matrix;
-		uniform mat4 mvp_matrix;
-		uniform vec3 colour;
-		uniform vec4 light_position;
-	
-		in vec4 _position;
-		in vec4 _normal;
-	
-		out vec3 fragment_colour;
-		out vec3 fragment_normal;
-		out vec3 fragment_light_vector;
-	
-		void main() {
-			vec4 position = _position*mv_matrix;
-			vec4 normal = normalize(_normal*mv_matrix);
-			vec4 light_vector = light_position-position;
-			
-			fragment_colour = colour;
-			fragment_normal = vec3(normal[0],normal[1],normal[2]);
-			fragment_light_vector = vec3(light_vector[0],light_vector[1],light_vector[2]);
-			
-			gl_Position = _position*mvp_matrix;
-		}
-	"#;
-
-	// Fragment/Pixel shader in OpenGL v140 (written in GLSL) 
-	let fragment_shader_src = r#"
-		#version 140
-		
-		in vec3 fragment_colour;
-		in vec3 fragment_normal;
-		in vec3 fragment_light_vector;
-		
-		out vec4 color;
-		
-		void main() {
-			float normal_squared = dot(fragment_normal,fragment_normal);
-			float light_distance_squared = dot(fragment_light_vector,fragment_light_vector);
-			float cos_light_angle = clamp (
-				dot(fragment_normal,fragment_light_vector) 
-					* inversesqrt(light_distance_squared*normal_squared),
-				0,
-				1
-			);
-			vec3 colour = fragment_colour*(cos_light_angle/light_distance_squared+0.2);
-			 color = vec4((colour), 1.0);
-			// color = vec4((fragment_light_vector),1.0);
-			// color = vec4(fragment_normal,1.0);
-		}
-	"#;
-
-	let program = glium::Program::from_source(
-		&display,
-		vertex_shader_src,
-		fragment_shader_src,
-		None
-	).unwrap();
 	
 	// ==============================
 	// Run everything
@@ -638,10 +643,9 @@ fn main() {
 			target.draw(
 				atom.species().mesh().vertex_buffer(),
 				atom.species().mesh().index_buffer(),
-				&program,
+				atom.species().mesh().program(),
 				&uniforms,
 				&params,
-				//&Default::default(), // This should be params, but that's not working.
 			).unwrap();
 		}
 		target.finish().unwrap();
