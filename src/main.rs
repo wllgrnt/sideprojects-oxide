@@ -387,8 +387,11 @@ fn main() {
 	// ==============================
 	// Make shaders
 	// ==============================
+	// ====================
+	// Polyhedron shaders
+	// ====================
 	// Vertex shader in OpenGL v140 (written in GLSL) 
-	let vertex_shader_src : &'static str = r#"
+	let vertex_shader_polyhedron : &'static str = r#"
 		#version 140
 		
 		uniform mat4 mv_matrix;
@@ -414,7 +417,7 @@ fn main() {
 	"#;
 
 	// Fragment/Pixel shader in OpenGL v140 (written in GLSL) 
-	let fragment_shader_src : &'static str = r#"
+	let fragment_shader_polyhedron : &'static str = r#"
 		#version 140
 		
 		uniform vec3 colour;
@@ -438,12 +441,76 @@ fn main() {
 		}
 	"#;
 
-	let program : glium::Program = glium::Program::from_source(
+	let program_polyhedron : glium::Program = glium::Program::from_source(
 		&display,
-		vertex_shader_src,
-		fragment_shader_src,
+		vertex_shader_polyhedron,
+		fragment_shader_polyhedron,
 		None
 	).unwrap();
+	
+	// ====================
+	// Sphere shaders
+	// ====================
+	// Vertex shader in OpenGL v140 (written in GLSL) 
+	let vertex_shader_sphere : &'static str = r#"
+		#version 140
+		
+		uniform mat4 mv_matrix;
+		uniform mat4 mvp_matrix;
+		uniform vec4 light_position;
+	
+		in vec4 _position;
+		in vec4 _normal;
+		
+		out vec3 fragment_normal;
+		out vec3 fragment_light_vector;
+	
+		void main() {
+			vec4 position = _position*mv_matrix;
+			vec4 normal = _normal;
+			vec4 light_vector = light_position-position;
+			
+			fragment_normal = vec3(normal[0],normal[1],normal[2]);
+			fragment_light_vector = vec3(light_vector[0],light_vector[1],light_vector[2]);
+			
+			gl_Position = _position*mvp_matrix;
+		}
+	"#;
+
+	// Fragment/Pixel shader in OpenGL v140 (written in GLSL) 
+	let fragment_shader_sphere : &'static str = r#"
+		#version 140
+		
+		uniform vec3 colour;
+		
+		in vec3 fragment_normal;
+		in vec3 fragment_light_vector;
+		
+		out vec4 color;
+		
+		void main() {
+			float normal_squared = dot(fragment_normal,fragment_normal);
+			if (normal_squared > 1)
+				discard;
+			float light_distance_squared = dot(fragment_light_vector,fragment_light_vector);
+			float cos_light_angle = clamp (
+				dot(fragment_normal,fragment_light_vector) 
+					* inversesqrt(light_distance_squared*normal_squared),
+				0,
+				1
+			);
+			vec3 colour3 = colour*(cos_light_angle/light_distance_squared+0.2);
+			color = vec4((colour3), 1.0);
+		}
+	"#;
+
+	let program_sphere : glium::Program = glium::Program::from_source(
+		&display,
+		vertex_shader_sphere,
+		fragment_shader_sphere,
+		None
+	).unwrap();
+	
 	
 	// ==============================
 	// Make meshes
@@ -451,28 +518,28 @@ fn main() {
 	let sr_1_2 = 1.0/2.0f32.sqrt();
 	
 	// The positions of each vertex of the triangle
-	let triangle_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [-sr_1_2, -sr_1_2, 0.0]);
-	let triangle_vertex1 = Vertex::new([-1.0,  1.0, 0.0], [-sr_1_2,  sr_1_2, 0.0]);
-	let triangle_vertex2 = Vertex::new([ 1.0,  0.0, 0.0], [ 1.0   ,  0.0   , 0.0]);
+	let triangle_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
+	let triangle_vertex1 = Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]);
+	let triangle_vertex2 = Vertex::new([ 1.0,  0.0, 0.0], [0.0, 0.0, 1.0]);
 	let triangle = Mesh::new(
 		&display,
 		&vec![triangle_vertex0, triangle_vertex1, triangle_vertex2],
 		&glium::index::PrimitiveType::TriangleStrip,
 		&vec![0, 1, 2u16],
-		&program,
+		&program_polyhedron,
 	);
 
 	// The positions of each vertex of the square
-	let square_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [-1.0, -1.0, 0.0]);
-	let square_vertex1 = Vertex::new([ 1.0, -1.0, 0.0], [ 1.0, -1.0, 0.0]);
-	let square_vertex2 = Vertex::new([-1.0,  1.0, 0.0], [-1.0,  1.0, 0.0]);
-	let square_vertex3 = Vertex::new([ 1.0,  1.0, 0.0], [ 1.0,  1.0, 0.0]);
+	let square_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
+	let square_vertex1 = Vertex::new([ 1.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
+	let square_vertex2 = Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]);
+	let square_vertex3 = Vertex::new([ 1.0,  1.0, 0.0], [0.0, 0.0, 1.0]);
 	let square = Mesh::new(
 		&display,
 		&vec![square_vertex0, square_vertex1, square_vertex2, square_vertex3],
 		&glium::index::PrimitiveType::TriangleStrip,
 		&vec![0, 2, 1, 3u16],
-		&program,
+		&program_polyhedron,
 	);
 	
 	let tetrahedron = Mesh::new(
@@ -485,7 +552,7 @@ fn main() {
 		],
 		&glium::index::PrimitiveType::TriangleStrip,
 		&vec![0, 1, 3, 2, 0, 1u16],
-		&program,
+		&program_polyhedron,
 	);
 	
 	// A cube (will likely get weird rounded edges because of normal interpolation.
@@ -512,7 +579,7 @@ fn main() {
 			1, 3, 5, 7, 5, 3,   // the  x face
 			0, 4, 2, 6, 2, 4u16 // the -x face
 		],
-		&program,
+		&program_polyhedron,
 	);
 	
 	// An icosahedron
@@ -556,13 +623,26 @@ fn main() {
 			3, 5, 10,
 			3, 11, 7u16
 		],
-		&program,
+		&program_polyhedron,
+	);
+
+	// The positions of each vertex of the sphere
+	let sphere_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [-1.0, -1.0, 0.0]);
+	let sphere_vertex1 = Vertex::new([ 1.0, -1.0, 0.0], [ 1.0, -1.0, 0.0]);
+	let sphere_vertex2 = Vertex::new([-1.0,  1.0, 0.0], [-1.0,  1.0, 0.0]);
+	let sphere_vertex3 = Vertex::new([ 1.0,  1.0, 0.0], [ 1.0,  1.0, 0.0]);
+	let sphere = Mesh::new(
+		&display,
+		&vec![sphere_vertex0, sphere_vertex1, sphere_vertex2, sphere_vertex3],
+		&glium::index::PrimitiveType::TriangleStrip,
+		&vec![0, 2, 1, 3u16],
+		&program_sphere,
 	);
 	
 	// ==============================
 	// Make species
 	// ==============================
-	let unobtanium = Species::new(&square, &0.3, &brown);
+	let unobtanium = Species::new(&sphere, &0.3, &brown);
 	let carbon = Species::new(&cube, &0.1, &orange);
 	let nickel = Species::new(&tetrahedron, &0.2, &blue);
 	let sulphur = Species::new(&icosahedron, &0.4, &turquoise);
@@ -607,7 +687,7 @@ fn main() {
 	// Run everything
 	// ==============================
 	let mut i = 0;
-	let spin_rate = 0.005;
+	let spin_rate = 0.0005;
 	
 	// this probably wants to be somewhere in the loop.
 	let params = glium::DrawParameters {
