@@ -240,8 +240,10 @@ impl<'a> Molecule<'a> {
 	
 	fn atoms(&self) -> &Vec<Atom> {&self._atoms}
 	
-	fn rotate_atom_against_camera(&mut self, in_id : &usize, in_angles : &[f32;4]) {
-		self._atoms[*in_id].rotate_against_camera(in_angles);
+	fn rotate_atoms_against_camera(&mut self, angles : &[f32;4]) {
+		for atom in &mut self._atoms {
+			atom.rotate_against_camera(angles);
+		}
 	}
 }
 
@@ -482,6 +484,7 @@ fn main() {
 		#version 140
 		
 		uniform vec3 colour;
+		uniform float size;
 		
 		in vec3 fragment_normal;
 		in vec3 fragment_light_vector;
@@ -492,10 +495,12 @@ fn main() {
 			float normal_squared = dot(fragment_normal,fragment_normal);
 			if (normal_squared > 1)
 				discard;
-			float light_distance_squared = dot(fragment_light_vector,fragment_light_vector);
+			vec3 normal = vec3(fragment_normal[0],fragment_normal[1],sqrt(1-normal_squared));
+			vec3 light_vector = vec3(fragment_light_vector[0],fragment_light_vector[1],fragment_light_vector[2]-size*normal[2]);
+			float light_distance_squared = dot(light_vector,light_vector);
 			float cos_light_angle = clamp (
-				dot(fragment_normal,fragment_light_vector) 
-					* inversesqrt(light_distance_squared*normal_squared),
+				dot(normal,light_vector) 
+					* inversesqrt(light_distance_squared),
 				0,
 				1
 			);
@@ -642,16 +647,14 @@ fn main() {
 	// ==============================
 	// Make species
 	// ==============================
-	let unobtanium = Species::new(&sphere, &0.3, &brown);
-	let carbon = Species::new(&cube, &0.1, &orange);
-	let nickel = Species::new(&tetrahedron, &0.2, &blue);
-	let sulphur = Species::new(&icosahedron, &0.4, &turquoise);
+	let carbon = Species::new(&sphere, &0.1, &orange);
+	let nickel = Species::new(&sphere, &0.2, &blue);
+	let sulphur = Species::new(&sphere, &0.4, &turquoise);
 	
 	// ==============================
 	// Make molecule
 	// ==============================
 	let mut molecule = Molecule::new();
-	molecule.add_atom(&unobtanium, &[ 1.0,  1.0, 0.0]);
 	molecule.add_atom(&sulphur, &[ 0.0,  0.0, 0.0]);
 	molecule.add_atom(&nickel, &[ 0.5,  0.5,  0.5]);
 	molecule.add_atom(&nickel, &[ 0.5, -0.5,  0.5]);
@@ -708,19 +711,20 @@ fn main() {
 		let angle = (i as f32)*spin_rate;
 		camera.set_position([2.0*angle.cos(),0.0,2.0*angle.sin()]);
 		
-		molecule.rotate_atom_against_camera(&0,camera.angles());
-		
 		let light_position = *camera.view_matrix() * light_position;
+		
+		molecule.rotate_atoms_against_camera(camera.angles());
 		
 		let mut target = display.draw();
 		target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
-		for atom in molecule.atoms() {
+		for mut atom in molecule.atoms() {
 			let mvp_matrix = *camera.vp_matrix() * *atom.model_matrix();
 			let uniforms = uniform!{
 				mv_matrix      : (*camera.vp_matrix()).contents().to_owned(),
 				mvp_matrix     : mvp_matrix.contents().to_owned(),
 				colour         : atom.species().colour().to_owned(),
-				light_position : light_position
+				light_position : light_position,
+				size           : *atom.species().size(),
 			};
 			target.draw(
 				atom.species().mesh().vertex_buffer(),
