@@ -288,10 +288,10 @@ impl Camera {
 		let n = in_near_plane.to_owned();
 		let f = in_far_plane.to_owned();
 		let perspective_matrix = Matrix::new([
-			[s/w, 0.0, 0.0    , 0.0      ],
-			[0.0, s/h, 0.0    , 0.0      ],
+			[s/w, 0.0, 0.0        , 0.0          ],
+			[0.0, s/h, 0.0        , 0.0          ],
 			[0.0, 0.0, (f+n)/(f-n), 2.0*f*n/(n-f)],
-			[0.0, 0.0, 1.0   , 0.0      ]
+			[0.0, 0.0, 1.0        , 0.0          ]
 		]);
 		
 		let mut camera = Camera {
@@ -464,15 +464,14 @@ fn main() {
 		in vec4 _position;
 		in vec4 _normal;
 		
-		out vec3 fragment_normal;
+		out vec2 fragment_xy;
 		out vec3 fragment_light_vector;
 	
 		void main() {
 			vec4 position = _position*mv_matrix;
-			vec4 normal = _normal;
 			vec4 light_vector = light_position-position;
 			
-			fragment_normal = vec3(normal[0],normal[1],normal[2]);
+			fragment_xy = vec2(_normal[0],_normal[1]);
 			fragment_light_vector = vec3(light_vector[0],light_vector[1],light_vector[2]);
 			
 			gl_Position = _position*mvp_matrix;
@@ -486,25 +485,28 @@ fn main() {
 		uniform vec3 colour;
 		uniform float size;
 		
-		in vec3 fragment_normal;
+		in vec2 fragment_xy;
 		in vec3 fragment_light_vector;
 		
 		out vec4 color;
 		
 		void main() {
-			float normal_squared = dot(fragment_normal,fragment_normal);
-			if (normal_squared > 1)
+			float xy_squared = dot(fragment_xy,fragment_xy);
+			if (xy_squared > 1)
 				discard;
-			vec3 normal = vec3(fragment_normal[0],fragment_normal[1],sqrt(1-normal_squared));
-			vec3 light_vector = vec3(fragment_light_vector[0],fragment_light_vector[1],fragment_light_vector[2]-size*normal[2]);
+			vec3 normal = vec3(fragment_xy[0],fragment_xy[1],sqrt(1-xy_squared));
+			vec3 light_vector = vec3 (
+				fragment_light_vector[0],
+				fragment_light_vector[1],
+				fragment_light_vector[2]-size*normal[2]
+			);
 			float light_distance_squared = dot(light_vector,light_vector);
 			float cos_light_angle = clamp (
-				dot(normal,light_vector) 
-					* inversesqrt(light_distance_squared),
+				dot(normal,light_vector) * inversesqrt(light_distance_squared),
 				0,
 				1
 			);
-			vec3 colour3 = colour*(cos_light_angle/light_distance_squared+0.2);
+			vec3 colour3 = colour*(cos_light_angle/light_distance_squared+0.0);
 			color = vec4((colour3), 1.0);
 		}
 	"#;
@@ -655,6 +657,7 @@ fn main() {
 	// Make molecule
 	// ==============================
 	let mut molecule = Molecule::new();
+	molecule.add_atom(&carbon, &[1.0,0.0,0.0]);
 	molecule.add_atom(&sulphur, &[ 0.0,  0.0, 0.0]);
 	molecule.add_atom(&nickel, &[ 0.5,  0.5,  0.5]);
 	molecule.add_atom(&nickel, &[ 0.5, -0.5,  0.5]);
@@ -703,13 +706,14 @@ fn main() {
 		.. Default::default()
 	};
 	
-	let light_position = [3.0,0.5,0.0,1.0f32];
+	let light_position = [0.0,0.0,0.0,1.0f32];
 
     let mut rotating = true;
 
 	loop {
 		let angle = (i as f32)*spin_rate;
-		camera.set_position([2.0*angle.cos(),0.0,2.0*angle.sin()]);
+		// camera.set_position([2.0*angle.cos(),0.0,2.0*angle.sin()]);
+		camera.set_position([2.0*angle.cos(),1.0,2.0*angle.sin()]);
 		
 		let light_position = *camera.view_matrix() * light_position;
 		
@@ -717,10 +721,11 @@ fn main() {
 		
 		let mut target = display.draw();
 		target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
-		for mut atom in molecule.atoms() {
+		for atom in molecule.atoms() {
+			let mv_matrix = *camera.view_matrix() * *atom.model_matrix();
 			let mvp_matrix = *camera.vp_matrix() * *atom.model_matrix();
 			let uniforms = uniform!{
-				mv_matrix      : (*camera.vp_matrix()).contents().to_owned(),
+				mv_matrix      : mv_matrix.contents().to_owned(),
 				mvp_matrix     : mvp_matrix.contents().to_owned(),
 				colour         : atom.species().colour().to_owned(),
 				light_position : light_position,
