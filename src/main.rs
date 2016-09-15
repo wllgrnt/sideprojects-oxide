@@ -4,6 +4,9 @@ extern crate glium;
 use std::f32;      //pi
 use std::ops::Mul; // multiplication overload
 
+
+mod fxaa;
+
 // ============================================================
 // Vertex
 // ============================================================
@@ -38,14 +41,14 @@ impl Matrix {
 			_contents: in_contents
 		}
 	}
-	
+
 	fn contents(&self) -> &[[f32;4];4] {&self._contents}
 }
 
 // Matrix multiplication. TODO: use a linear algebra library.
 impl Mul<Matrix> for Matrix {
 	type Output = Matrix;
-	
+
 	fn mul (self, in_other : Matrix) -> Matrix {
 		let a : &[[f32;4];4] = &self._contents;
 		let b : &[[f32;4];4] = &in_other._contents;
@@ -75,7 +78,7 @@ impl Mul<Matrix> for Matrix {
 
 impl Mul<[f32;4]> for Matrix {
 	type Output = [f32;4];
-	
+
 	fn mul (self, in_other : [f32;4]) -> [f32;4] {
 		let a : &[[f32;4];4] = &self._contents;
 		let b : &[f32;4] = &in_other;
@@ -124,7 +127,7 @@ impl<'a> Mesh<'a> {
 			_program       : in_program,
 		}
 	}
-	
+
 	fn vertex_buffer(&self) -> &glium::VertexBuffer<Vertex> {&self._vertex_buffer}
 	fn index_buffer(&self) -> &glium::index::IndexBuffer<u16> {&self._index_buffer}
 	fn program(&self) -> &glium::Program {&self._program}
@@ -152,7 +155,7 @@ impl<'a> Species<'a> {
 			_colour : in_colour.to_owned()
 		}
 	}
-	
+
 	fn mesh(&self) -> &Mesh {&self._mesh}
 	fn size(&self) -> &f32  {&self._size}
 	fn colour(&self) -> &[f32;3] {&self._colour}
@@ -184,38 +187,38 @@ impl<'a> Atom<'a> {
 			]),
 		}
 	}
-	
+
 	fn species(&self) -> &Species<'a> {&self._species}
 	fn model_matrix(&self) -> &Matrix {&self._model_matrix}
-	
+
 	fn rotate_against_camera(&mut self, in_angles : &[f32;4]) {
-		
+
 		let cos_theta = in_angles[0];
 		let sin_theta = in_angles[1];
 		let cos_phi = in_angles[2];
 		let sin_phi = in_angles[3];
-		
+
 		let translation_and_scaling_matrix = Matrix::new([
 				[*self._species.size(), 0.0                  , 0.0                  , self._position[0]],
 				[0.0                  , *self._species.size(), 0.0                  , self._position[1]],
 				[0.0                  , 0.0                  , *self._species.size(), self._position[2]],
 				[0.0                  , 0.0                  , 0.0                  , 1.0              ]
 		]);
-		
+
 		let orbital_matrix = Matrix::new([
 			[ cos_theta, 0.0, sin_theta, 0.0],
 			[ 0.0      , 1.0, 0.0      , 0.0],
 			[-sin_theta, 0.0, cos_theta, 0.0],
 			[ 0.0      , 0.0, 0.0      , 1.0]
 		]);
-		
+
 		let azimuthal_matrix = Matrix::new([
 			[1.0,  0.0    ,  0.0    , 0.0],
 			[0.0,  cos_phi,  sin_phi, 0.0],
 			[0.0, -sin_phi,  cos_phi, 0.0],
 			[0.0,  0.0    ,  0.0    , 1.0]
 		]);
-		
+
 		self._model_matrix = translation_and_scaling_matrix * orbital_matrix * azimuthal_matrix;
 	}
 }
@@ -231,15 +234,15 @@ struct Molecule<'a> {
 
 impl<'a> Molecule<'a> {
 	fn new() -> Molecule<'a> {Molecule{_atoms : Vec::new()}}
-	
+
 	fn add_atom(
 		&mut self,
 		in_species  : &'a Species,
 		in_position : &[f32;3],
 	) {self._atoms.push(Atom::new(in_species, in_position))}
-	
+
 	fn atoms(&self) -> &Vec<Atom> {&self._atoms}
-	
+
 	fn rotate_atoms_against_camera(&mut self, angles : &[f32;4]) {
 		for atom in &mut self._atoms {
 			atom.rotate_against_camera(angles);
@@ -272,7 +275,7 @@ impl Camera {
 		in_near_plane    : &f32,
 		in_far_plane     : &f32
 	) -> Camera {
-		
+
 		let (w, h) = (*in_display).get_framebuffer_dimensions();
 		let mut w = w as f32;
 		let mut h = h as f32;
@@ -283,7 +286,7 @@ impl Camera {
 			w = 1.0;
 			h = h/w;
 		}
-		
+
 		let s = 1.0/(in_field_of_view*f32::consts::PI/360.0).tan();
 		let n = in_near_plane.to_owned();
 		let f = in_far_plane.to_owned();
@@ -293,7 +296,7 @@ impl Camera {
 			[0.0, 0.0, (f+n)/(f-n), 2.0*f*n/(n-f)],
 			[0.0, 0.0, 1.0        , 0.0          ]
 		]);
-		
+
 		let mut camera = Camera {
 			_position           : in_position.to_owned(),
 			_focus              : in_focus.to_owned(),
@@ -308,18 +311,18 @@ impl Camera {
 		camera.update();
 		camera
 	}
-	
+
 	fn angles(&self) -> &[f32;4] {&self._angles}
 	fn view_matrix(&self) -> &Matrix {&self._view_matrix}
 	fn vp_matrix(&self) -> &Matrix {&self._vp_matrix}
-	
+
 	fn set_position(&mut self, in_position : [f32;3]) {self._position = in_position; self.update();}
-	
+
 	fn update(&mut self) {
 		let x = self._focus[0]-self._position[0];
 		let y = self._focus[1]-self._position[1];
 		let z = self._focus[2]-self._position[2];
-		
+
 		// theta is the orbital angle
 		let cos_theta =  z/(x*x+z*z).sqrt();
 		let sin_theta =  x/(x*x+z*z).sqrt();
@@ -329,7 +332,7 @@ impl Camera {
 			[ sin_theta, 0.0, cos_theta, 0.0],
 			[ 0.0      , 0.0, 0.0      , 1.0]
 		]);
-		
+
 		// phi is the azimuthal angle
 		let cos_phi = (x*x+z*z).sqrt()/(x*x+y*y+z*z).sqrt();
 		let sin_phi = y/(x*x+y*y+z*z).sqrt();
@@ -339,14 +342,14 @@ impl Camera {
 			[0.0,  sin_phi,  cos_phi, 0.0],
 			[0.0,  0.0    ,  0.0    , 1.0]
 		]);
-		
+
 		let translation_matrix = Matrix::new([
 			[1.0, 0.0, 0.0, -self._position[0]],
 			[0.0, 1.0, 0.0, -self._position[1]],
 			[0.0, 0.0, 1.0, -self._position[2]],
 			[0.0, 0.0, 0.0,  1.0              ]
 		]);
-		
+
 		self._angles = [cos_theta, sin_theta, cos_phi, sin_phi];
 		self._view_matrix = azimuthal_matrix*orbital_matrix*translation_matrix;
 		self._vp_matrix = self._perspective_matrix*self._view_matrix;
@@ -370,13 +373,13 @@ fn main() {
 	let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::WindowBuilder::new()
 		.with_title("Furnace: Molecular Visualisation".to_string())
 		.build_glium().unwrap();
-	
+
 	implement_vertex!(Vertex, _position, _normal);
-	
+
 	// ==============================
 	// Dark2
 	// ==============================
-	
+
 	let turquoise = [ 27.0/255.0,158.0/255.0,119.0/255.0];
 	let orange    = [217.0/255.0, 95.0/255.0,  2.0/255.0];
 	let blue      = [117.0/255.0,112.0/255.0,179.0/255.0];
@@ -385,55 +388,55 @@ fn main() {
 	let yellow    = [230.0/255.0,171.0/255.0,  2.0/255.0];
 	let brown     = [166.0/255.0,118.0/255.0, 29.0/255.0];
 	let grey      = [102.0/255.0,102.0/255.0,102.0/255.0];
-	
+
 	// ==============================
 	// Make shaders
 	// ==============================
 	// ====================
 	// Polyhedron shaders
 	// ====================
-	// Vertex shader in OpenGL v140 (written in GLSL) 
+	// Vertex shader in OpenGL v140 (written in GLSL)
 	let vertex_shader_polyhedron : &'static str = r#"
 		#version 140
-		
+
 		uniform mat4 mv_matrix;
 		uniform mat4 mvp_matrix;
 		uniform vec4 light_position;
-	
+
 		in vec4 _position;
 		in vec4 _normal;
-		
+
 		out vec3 fragment_normal;
 		out vec3 fragment_light_vector;
-	
+
 		void main() {
 			vec4 position = _position*mv_matrix;
 			vec4 normal = normalize(_normal*mv_matrix);
 			vec4 light_vector = light_position-position;
-			
+
 			fragment_normal = vec3(normal[0],normal[1],normal[2]);
 			fragment_light_vector = vec3(light_vector[0],light_vector[1],light_vector[2]);
-			
+
 			gl_Position = _position*mvp_matrix;
 		}
 	"#;
 
-	// Fragment/Pixel shader in OpenGL v140 (written in GLSL) 
+	// Fragment/Pixel shader in OpenGL v140 (written in GLSL)
 	let fragment_shader_polyhedron : &'static str = r#"
 		#version 140
-		
+
 		uniform vec3 colour;
-		
+
 		in vec3 fragment_normal;
 		in vec3 fragment_light_vector;
-		
+
 		out vec4 color;
-		
+
 		void main() {
 			float normal_squared = dot(fragment_normal,fragment_normal);
 			float light_distance_squared = dot(fragment_light_vector,fragment_light_vector);
 			float cos_light_angle = clamp (
-				dot(fragment_normal,fragment_light_vector) 
+				dot(fragment_normal,fragment_light_vector)
 					* inversesqrt(light_distance_squared*normal_squared),
 				0,
 				1
@@ -449,47 +452,47 @@ fn main() {
 		fragment_shader_polyhedron,
 		None
 	).unwrap();
-	
+
 	// ====================
 	// Sphere shaders
 	// ====================
-	// Vertex shader in OpenGL v140 (written in GLSL) 
+	// Vertex shader in OpenGL v140 (written in GLSL)
 	let vertex_shader_sphere : &'static str = r#"
 		#version 140
-		
+
 		uniform mat4 mv_matrix;
 		uniform mat4 mvp_matrix;
 		uniform vec4 light_position;
-	
+
 		in vec4 _position;
 		in vec4 _normal;
 		
 		out vec2 fragment_xy;
 		out vec3 fragment_light_vector;
-	
+
 		void main() {
 			vec4 position = _position*mv_matrix;
 			vec4 light_vector = light_position-position;
 			
 			fragment_xy = vec2(_normal[0],_normal[1]);
 			fragment_light_vector = vec3(light_vector[0],light_vector[1],light_vector[2]);
-			
+
 			gl_Position = _position*mvp_matrix;
 		}
 	"#;
 
-	// Fragment/Pixel shader in OpenGL v140 (written in GLSL) 
+	// Fragment/Pixel shader in OpenGL v140 (written in GLSL)
 	let fragment_shader_sphere : &'static str = r#"
 		#version 140
-		
+
 		uniform vec3 colour;
 		uniform float size;
 		
 		in vec2 fragment_xy;
 		in vec3 fragment_light_vector;
-		
+
 		out vec4 color;
-		
+
 		void main() {
 			float xy_squared = dot(fragment_xy,fragment_xy);
 			if (xy_squared > 1)
@@ -517,13 +520,13 @@ fn main() {
 		fragment_shader_sphere,
 		None
 	).unwrap();
-	
-	
+
+
 	// ==============================
 	// Make meshes
 	// ==============================
 	let sr_1_2 = 1.0/2.0f32.sqrt();
-	
+
 	// The positions of each vertex of the triangle
 	let triangle_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
 	let triangle_vertex1 = Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]);
@@ -548,7 +551,7 @@ fn main() {
 		&vec![0, 2, 1, 3u16],
 		&program_polyhedron,
 	);
-	
+
 	let tetrahedron = Mesh::new(
 		&display,
 		&vec![
@@ -561,7 +564,7 @@ fn main() {
 		&vec![0, 1, 3, 2, 0, 1u16],
 		&program_polyhedron,
 	);
-	
+
 	// A cube (will likely get weird rounded edges because of normal interpolation.
 	// Different vertices should be used for different faces at each corner. (not needed since atoms are spheres.)
 	// n.b. uses TrianglesList not TriangleStrip, because triangle strips don't do corners.
@@ -588,7 +591,7 @@ fn main() {
 		],
 		&program_polyhedron,
 	);
-	
+
 	// An icosahedron
 	let phi = 2.0/(1.0+5.0f32.sqrt());
 	let icosahedron = Mesh::new(
@@ -645,14 +648,14 @@ fn main() {
 		&vec![0, 2, 1, 3u16],
 		&program_sphere,
 	);
-	
+
 	// ==============================
 	// Make species
 	// ==============================
 	let carbon = Species::new(&sphere, &0.1, &orange);
 	let nickel = Species::new(&sphere, &0.2, &blue);
 	let sulphur = Species::new(&sphere, &0.4, &turquoise);
-	
+
 	// ==============================
 	// Make molecule
 	// ==============================
@@ -673,7 +676,7 @@ fn main() {
 	molecule.add_atom(&carbon, &[ 0.0, -0.5,  0.0]);
 	molecule.add_atom(&carbon, &[ 0.0,  0.0,  0.5]);
 	molecule.add_atom(&carbon, &[ 0.0,  0.0, -0.5]);
-	
+
 	// ==============================
 	// Make camera
 	// ==============================
@@ -686,15 +689,15 @@ fn main() {
 	// near and far clipping planes
 	let near_plane = 1.0;
 	let far_plane = 10.0;
-	
+
 	let mut camera = Camera::new(&display, &camera_position, &camera_focus, &field_of_view, &near_plane, &far_plane);
-	
+
 	// ==============================
 	// Run everything
 	// ==============================
 	let mut i = 0;
 	let spin_rate = 0.0005;
-	
+
 	// this probably wants to be somewhere in the loop.
 	let params = glium::DrawParameters {
 		depth: glium::Depth {
@@ -708,37 +711,38 @@ fn main() {
 	
 	let light_position = [0.0,0.0,0.0,1.0f32];
 
-    let mut rotating = true;
-
+	let mut rotating = true;
+	let mut fxaa_enabled = true;
+	let fxaa = fxaa::FxaaSystem::new(&display);
 	loop {
 		let angle = (i as f32)*spin_rate;
-		// camera.set_position([2.0*angle.cos(),0.0,2.0*angle.sin()]);
 		camera.set_position([2.0*angle.cos(),1.0,2.0*angle.sin()]);
-		
 		let light_position = *camera.view_matrix() * light_position;
-		
+
 		molecule.rotate_atoms_against_camera(camera.angles());
-		
+
 		let mut target = display.draw();
-		target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
-		for atom in molecule.atoms() {
-			let mv_matrix = *camera.view_matrix() * *atom.model_matrix();
-			let mvp_matrix = *camera.vp_matrix() * *atom.model_matrix();
-			let uniforms = uniform!{
+		fxaa::draw(&fxaa, &mut target, fxaa_enabled, |target| {
+			target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
+			for atom in molecule.atoms() {
+				let mv_matrix = *camera.view_matrix() * *atom.model_matrix();
+				let mvp_matrix = *camera.vp_matrix() * *atom.model_matrix();
+				let uniforms = uniform!{
 				mv_matrix      : mv_matrix.contents().to_owned(),
 				mvp_matrix     : mvp_matrix.contents().to_owned(),
 				colour         : atom.species().colour().to_owned(),
 				light_position : light_position,
 				size           : *atom.species().size(),
-			};
-			target.draw(
-				atom.species().mesh().vertex_buffer(),
-				atom.species().mesh().index_buffer(),
-				atom.species().mesh().program(),
-				&uniforms,
-				&params,
-			).unwrap();
-		}
+				};
+				target.draw(
+					atom.species().mesh().vertex_buffer(),
+					atom.species().mesh().index_buffer(),
+					atom.species().mesh().program(),
+					&uniforms,
+					&params,
+				).unwrap();
+			}
+		});
 		target.finish().unwrap();
 
 		for ev in display.poll_events() {
@@ -747,6 +751,10 @@ fn main() {
                 glium::glutin::Event::KeyboardInput(glium::glutin::ElementState::Pressed, _, Some(glium::glutin::VirtualKeyCode::Space)) => {
                     rotating = !rotating;
                     println!("Rotation is now {}", if rotating { "on" } else { "off" });
+                },
+                glium::glutin::Event::KeyboardInput(glium::glutin::ElementState::Pressed, _, Some(glium::glutin::VirtualKeyCode::Up)) => {
+                    fxaa_enabled = !fxaa_enabled;
+                    println!("FXAA is now {}", if fxaa_enabled { "on" } else { "off" });
                 },
 				_ => ()
 			}
