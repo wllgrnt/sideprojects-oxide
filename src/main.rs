@@ -497,7 +497,7 @@ fn main() {
 			float xy_squared = dot(fragment_xy,fragment_xy);
 			if (xy_squared > 1)
 				discard;
-			vec3 normal = vec3(fragment_xy[0],fragment_xy[1],sqrt(1-xy_squared));
+			vec3 normal = vec3(fragment_xy[0],fragment_xy[1],-sqrt(1-xy_squared));
 			vec3 light_vector = vec3 (
 				fragment_light_vector[0],
 				fragment_light_vector[1],
@@ -509,8 +509,8 @@ fn main() {
 				0,
 				1
 			);
-			vec3 colour3 = colour*(cos_light_angle/light_distance_squared+0.0);
-			color = vec4((colour3), 1.0);
+			vec3 colour3 = colour*(cos_light_angle/light_distance_squared+0.2);
+			color = vec4(colour3, 1.0);
 		}
 	"#;
 
@@ -660,7 +660,6 @@ fn main() {
 	// Make molecule
 	// ==============================
 	let mut molecule = Molecule::new();
-	molecule.add_atom(&carbon, &[1.0,0.0,0.0]);
 	molecule.add_atom(&sulphur, &[ 0.0,  0.0, 0.0]);
 	molecule.add_atom(&nickel, &[ 0.5,  0.5,  0.5]);
 	molecule.add_atom(&nickel, &[ 0.5, -0.5,  0.5]);
@@ -690,7 +689,14 @@ fn main() {
 	let near_plane = 1.0;
 	let far_plane = 10.0;
 
-	let mut camera = Camera::new(&display, &camera_position, &camera_focus, &field_of_view, &near_plane, &far_plane);
+	let mut camera = Camera::new (
+		&display,
+		&camera_position,
+		&camera_focus,
+		&field_of_view,
+		&near_plane,
+		&far_plane
+	);
 
 	// ==============================
 	// Run everything
@@ -709,7 +715,7 @@ fn main() {
 		.. Default::default()
 	};
 	
-	let light_position = [0.0,0.0,0.0,1.0f32];
+	let light_position = [2.0,0.0,0.0,1.0f32];
 
 	let mut rotating = true;
 	let mut fxaa_enabled = true;
@@ -747,18 +753,28 @@ fn main() {
 
 		for ev in display.poll_events() {
 			match ev {
-				glium::glutin::Event::Closed => return,
-                glium::glutin::Event::KeyboardInput(glium::glutin::ElementState::Pressed, _, Some(glium::glutin::VirtualKeyCode::Space)) => {
-                    rotating = !rotating;
-                    println!("Rotation is now {}", if rotating { "on" } else { "off" });
-                },
-                glium::glutin::Event::KeyboardInput(glium::glutin::ElementState::Pressed, _, Some(glium::glutin::VirtualKeyCode::Up)) => {
-                    fxaa_enabled = !fxaa_enabled;
-                    println!("FXAA is now {}", if fxaa_enabled { "on" } else { "off" });
-                },
+				glium::glutin::Event::Closed =>
+					return,
+					glium::glutin::Event::KeyboardInput(
+						glium::glutin::ElementState::Pressed,
+						_,
+						Some(glium::glutin::VirtualKeyCode::Space)
+					)
+				=> {
+					rotating = !rotating;
+					println!("Rotation is now {}", if rotating { "on" } else { "off" });
+				},
+				glium::glutin::Event::KeyboardInput (
+					glium::glutin::ElementState::Pressed,
+					_,
+					Some(glium::glutin::VirtualKeyCode::Up)
+				) => {
+					fxaa_enabled = !fxaa_enabled;
+					println!("FXAA is now {}", if fxaa_enabled { "on" } else { "off" });
+				},
 				_ => ()
 			}
 		}
-        if rotating { i +=1 };
+		if rotating { i +=1 };
 	}
 }
