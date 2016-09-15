@@ -260,6 +260,7 @@ struct Camera {
     _field_of_view      : f32,
     _near_plane         : f32,
     _far_plane          : f32,
+    _screen_size        : [u32;2],
     _angles             : [f32;4],
     _view_matrix        : Matrix,
     _perspective_matrix : Matrix,
@@ -277,25 +278,6 @@ impl Camera {
     ) -> Camera {
 
         let (w, h) = (*in_display).get_framebuffer_dimensions();
-        let mut w = w as f32;
-        let mut h = h as f32;
-        if w > h {
-            w = w/h;
-            h = 1.0;
-        } else {
-            w = 1.0;
-            h = h/w;
-        }
-
-        let s = 1.0/(in_field_of_view*f32::consts::PI/360.0).tan();
-        let n = in_near_plane.to_owned();
-        let f = in_far_plane.to_owned();
-        let perspective_matrix = Matrix::new([
-            [s/w, 0.0, 0.0        , 0.0          ],
-            [0.0, s/h, 0.0        , 0.0          ],
-            [0.0, 0.0, (f+n)/(f-n), 2.0*f*n/(n-f)],
-            [0.0, 0.0, 1.0        , 0.0          ]
-        ]);
 
         let mut camera = Camera {
             _position           : in_position.to_owned(),
@@ -303,9 +285,10 @@ impl Camera {
             _field_of_view      : in_field_of_view.to_owned(),
             _near_plane         : in_near_plane.to_owned(),
             _far_plane          : in_far_plane.to_owned(),
+            _screen_size        : [w, h],
             _angles             : [0.0;4],                    // dummy value
             _view_matrix        : Matrix::new([[0.0;4];4]),   // dummy value
-            _perspective_matrix : perspective_matrix,
+            _perspective_matrix : Matrix::new([[0.0;4];4]),   // dummy value
             _vp_matrix          : Matrix::new([[0.0;4];4]),   // dummy value
         };
         camera.update();
@@ -316,9 +299,37 @@ impl Camera {
     fn view_matrix(&self) -> &Matrix {&self._view_matrix}
     fn vp_matrix(&self) -> &Matrix {&self._vp_matrix}
 
-    fn set_position(&mut self, in_position : [f32;3]) {self._position = in_position; self.update();}
-
+    fn set_position(&mut self, in_position : [f32;3]) {
+        self._position = in_position;
+        self.update();
+    }
+    
+    fn set_screen_size(&mut self, in_x : &u32, in_y : &u32) {
+        self._screen_size = [*in_x, *in_y];
+    }
+    
     fn update(&mut self) {
+        
+        let mut w = self._screen_size[0] as f32;
+        let mut h = self._screen_size[1] as f32;
+        if w > h {
+            w = w/h;
+            h = 1.0;
+        } else {
+            w = 1.0;
+            h = h/w;
+        }
+        
+        let s = 1.0/(self._field_of_view*f32::consts::PI/360.0).tan();
+        let n = self._near_plane.to_owned();
+        let f = self._far_plane.to_owned();
+        self._perspective_matrix = Matrix::new([
+            [s/w, 0.0, 0.0        , 0.0          ],
+            [0.0, s/h, 0.0        , 0.0          ],
+            [0.0, 0.0, (f+n)/(f-n), 2.0*f*n/(n-f)],
+            [0.0, 0.0, 1.0        , 0.0          ]
+        ]);
+        
         let x = self._focus[0]-self._position[0];
         let y = self._focus[1]-self._position[1];
         let z = self._focus[2]-self._position[2];
@@ -753,6 +764,9 @@ fn main() {
 
         for ev in display.poll_events() {
             match ev {
+                // ==============================
+                // Window is modified
+                // ==============================
                 glium::glutin::Event::Closed =>
                     return,
                     glium::glutin::Event::KeyboardInput(
@@ -764,6 +778,12 @@ fn main() {
                     rotating = !rotating;
                     println!("Rotation is now {}", if rotating { "on" } else { "off" });
                 },
+                
+                glium::glutin::Event::Resized(x, y) => {camera.set_screen_size(&x, &y);},
+                
+                // ==============================
+                // Key is pressed
+                // ==============================
                 glium::glutin::Event::KeyboardInput (
                     glium::glutin::ElementState::Pressed,
                     _,
@@ -772,6 +792,10 @@ fn main() {
                     fxaa_enabled = !fxaa_enabled;
                     println!("FXAA is now {}", if fxaa_enabled { "on" } else { "off" });
                 },
+                
+                // ==============================
+                // Other
+                // ==============================
                 _ => ()
             }
         }
