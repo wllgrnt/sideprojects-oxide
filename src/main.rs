@@ -208,17 +208,17 @@ impl<'a> Atom<'a> {
         ]);
 
         let azimuthal_matrix = Matrix::new ([
-            [1.0,  0.0                 , 0.0                 , 0.0],
-            [0.0,  *in_camera.cos_phi(), *in_camera.sin_phi(), 0.0],
-            [0.0, -*in_camera.sin_phi(), *in_camera.cos_phi(), 0.0],
-            [0.0,  0.0                 , 0.0                 , 1.0]
+            [1.0, 0.0                 ,  0.0                 , 0.0],
+            [0.0, *in_camera.cos_phi(), -*in_camera.sin_phi(), 0.0],
+            [0.0, *in_camera.sin_phi(),  *in_camera.cos_phi(), 0.0],
+            [0.0, 0.0                 ,  0.0                 , 1.0]
         ]);
 
 	let spin_matrix = Matrix::new ([
-	    [ *in_camera.cos_psi(), *in_camera.sin_psi(), 0.0, 0.0],
-	    [-*in_camera.sin_psi(), *in_camera.cos_psi(), 0.0, 0.0],
-	    [ 0.0                 , 0.0                 , 1.0, 0.0],
-	    [ 0.0                 , 0.0                 , 0.0, 1.0]
+	    [*in_camera.cos_psi(), -*in_camera.sin_psi(), 0.0, 0.0],
+	    [*in_camera.sin_psi(),  *in_camera.cos_psi(), 0.0, 0.0],
+	    [0.0                 ,  0.0                 , 1.0, 0.0],
+	    [0.0                 ,  0.0                 , 0.0, 1.0]
 	]);
 
         self._model_matrix = translation_and_scaling_matrix
@@ -261,13 +261,13 @@ impl<'a> Molecule<'a> {
 // ============================================================
 struct Camera {
     _focus              : [f32;3],
-    _theta_degrees      : u32,
+    _theta_degrees      : i32,
     _cos_theta          : f32,
     _sin_theta          : f32,
-    _phi_degrees        : u32,
+    _phi_degrees        : i32,
     _cos_phi            : f32,
     _sin_phi            : f32,
-    _psi_degrees        : u32,
+    _psi_degrees        : i32,
     _cos_psi            : f32,
     _sin_psi            : f32,
     _r                  : u32,
@@ -284,9 +284,9 @@ impl Camera {
     fn new (
         in_display       : &glium::backend::glutin_backend::GlutinFacade,
         in_focus         : &[f32;3],
-        in_theta_degrees : &u32,
-        in_phi_degrees   : &u32,
-        in_psi_degrees   : &u32,
+        in_theta_degrees : &i32,
+        in_phi_degrees   : &i32,
+        in_psi_degrees   : &i32,
         in_r             : &u32,
         in_field_of_view : &f32,
         in_near_plane    : &f32,
@@ -327,23 +327,121 @@ impl Camera {
     fn sin_psi(&self) -> &f32 {&self._sin_psi}
     fn view_matrix(&self) -> &Matrix {&self._view_matrix}
     fn vp_matrix(&self) -> &Matrix {&self._vp_matrix}
-
-    /*fn set_position(&mut self, in_position : [f32;3]) {
-        self._position = in_position;
-        self.update();
-    }*/
     
     fn set_angles(
         &mut self,
-        in_theta_degrees : &u32,
-        in_phi_degrees   : &u32,
-        in_psi_degrees   : &u32,
+        in_theta_degrees : &i32,
+        in_phi_degrees   : &i32,
+        in_psi_degrees   : &i32,
         in_r             : &u32
     ) {
         self._theta_degrees = in_theta_degrees.to_owned();
         self._phi_degrees = in_phi_degrees.to_owned();
 	self._psi_degrees = in_psi_degrees.to_owned();
 	self._r = in_r.to_owned();
+	self.update();
+    }
+
+    fn zoom_in (&mut self) {if self._r > 1 {self._r -= 1} self.update();}
+    fn zoom_out (&mut self) {self._r += 1; self.update();}
+    fn spin_clockwise (&mut self) {
+        if self._psi_degrees == 355 {
+	    self._psi_degrees = 0;
+	} else {
+	    self._psi_degrees += 5;
+	}
+	self.update();
+    }
+    fn spin_anticlockwise (&mut self) {
+        if self._psi_degrees == 0 {
+	    self._psi_degrees = 355;
+	} else {
+	    self._psi_degrees -= 5;
+	}
+	self.update();
+    }
+    fn azimuth_up (&mut self) {
+        let phi_change = (5.0*self._cos_psi).round() as i32;
+	let theta_change = (-5.0*self._sin_psi).round() as i32;
+	self._phi_degrees += phi_change;
+	self._theta_degrees += theta_change;
+	if self._phi_degrees > 90 {
+	    self._phi_degrees = 180-self._phi_degrees;
+	    self._theta_degrees += 180;
+	    self._psi_degrees += 180;
+	}
+	if self._phi_degrees < -90 {
+	    self._phi_degrees = -180-self._phi_degrees;
+	    self._theta_degrees += 180;
+	    self._psi_degrees += 180;
+	}
+	if self._theta_degrees < 0 {self._theta_degrees += 360;}
+	else if self._theta_degrees >= 360 {self._theta_degrees -= 360;}
+	if self._psi_degrees < 0 {self._psi_degrees += 360;}
+	else if self._psi_degrees >= 360 {self._psi_degrees -= 360;}
+	self.update();
+    }
+    fn azimuth_down (&mut self) {
+        let phi_change = (-5.0*self._cos_psi).round() as i32;
+	let theta_change = (5.0*self._sin_psi).round() as i32;
+	self._phi_degrees += phi_change;
+	self._theta_degrees += theta_change;
+	if self._phi_degrees > 90 {
+	    self._phi_degrees = 180-self._phi_degrees;
+	    self._theta_degrees += 180;
+	    self._psi_degrees += 180;
+	}
+	if self._phi_degrees < -90 {
+	    self._phi_degrees = -180-self._phi_degrees;
+	    self._theta_degrees += 180;
+	    self._psi_degrees += 180;
+	}
+	if self._theta_degrees < 0 {self._theta_degrees += 360;}
+	else if self._theta_degrees >= 360 {self._theta_degrees -= 360;}
+	if self._psi_degrees < 0 {self._psi_degrees += 360;}
+	else if self._psi_degrees >= 360 {self._psi_degrees -= 360;}
+	self.update();
+    }
+    fn orbit_right (&mut self) {
+        let phi_change = (5.0*self._sin_psi).round() as i32;
+	let theta_change = (-5.0*self._cos_psi).round() as i32;
+	self._phi_degrees += phi_change;
+	self._theta_degrees += theta_change;
+	if self._phi_degrees > 90 {
+	    self._phi_degrees = 180-self._phi_degrees;
+	    self._theta_degrees += 180;
+	    self._psi_degrees += 180;
+	}
+	if self._phi_degrees < -90 {
+	    self._phi_degrees = -180-self._phi_degrees;
+	    self._theta_degrees += 180;
+	    self._psi_degrees += 180;
+	}
+	if self._theta_degrees < 0 {self._theta_degrees += 360;}
+	else if self._theta_degrees >= 360 {self._theta_degrees -= 360;}
+	if self._psi_degrees < 0 {self._psi_degrees += 360;}
+	else if self._psi_degrees >= 360 {self._psi_degrees -= 360;}
+	self.update();
+    }
+    fn orbit_left (&mut self) {
+        let phi_change = (-5.0*self._sin_psi).round() as i32;
+	let theta_change = (5.0*self._cos_psi).round() as i32;
+	self._phi_degrees += phi_change;
+	self._theta_degrees += theta_change;
+	if self._phi_degrees > 90 {
+	    self._phi_degrees = 180-self._phi_degrees;
+	    self._theta_degrees += 180;
+	    self._psi_degrees += 180;
+	}
+	if self._phi_degrees < -90 {
+	    self._phi_degrees = -180-self._phi_degrees;
+	    self._theta_degrees += 180;
+	    self._psi_degrees += 180;
+	}
+	if self._theta_degrees < 0 {self._theta_degrees += 360;}
+	else if self._theta_degrees >= 360 {self._theta_degrees -= 360;}
+	if self._psi_degrees < 0 {self._psi_degrees += 360;}
+	else if self._psi_degrees >= 360 {self._psi_degrees -= 360;}
 	self.update();
     }
     
@@ -397,10 +495,10 @@ impl Camera {
         self._cos_phi = phi.cos();
         self._sin_phi = phi.sin();
         let azimuthal_matrix = Matrix::new([
-            [1.0, 0.0          ,  0.0          , 0.0],
-            [0.0, self._cos_phi, -self._sin_phi, 0.0],
-            [0.0, self._sin_phi,  self._cos_phi, 0.0],
-            [0.0, 0.0          ,  0.0          , 1.0]
+            [1.0,  0.0          , 0.0          , 0.0],
+            [0.0,  self._cos_phi, self._sin_phi, 0.0],
+            [0.0, -self._sin_phi, self._cos_phi, 0.0],
+            [0.0,  0.0          , 0.0          , 1.0]
         ]);
         
         // psi is the spin angle
@@ -408,10 +506,10 @@ impl Camera {
 	self._cos_psi = psi.cos();
 	self._sin_psi = psi.sin();
 	let spin_matrix = Matrix::new([
-	    [self._cos_psi, -self._sin_psi, 0.0, 0.0],
-	    [self._sin_psi,  self._cos_psi, 0.0, 0.0],
-	    [0.0          ,  0.0          , 1.0, 0.0],
-	    [0.0          ,  0.0          , 0.0, 1.0]
+	    [ self._cos_psi, self._sin_psi, 0.0, 0.0],
+	    [-self._sin_psi, self._cos_psi, 0.0, 0.0],
+	    [ 0.0          , 0.0          , 1.0, 0.0],
+	    [ 0.0          , 0.0          , 0.0, 1.0]
 	]);
 
 	// r is the distance of the camera from the focus
@@ -728,18 +826,19 @@ fn main() {
     // ==============================
     // Make species
     // ==============================
-    let carbon = Species::new(&sphere, &0.1, &orange);
-    let nickel = Species::new(&sphere, &0.2, &blue);
-    let sulphur = Species::new(&sphere, &0.4, &turquoise);
+    let carbon = Species::new(&sphere, &0.1, &blue);
+    let nickel = Species::new(&sphere, &0.2, &orange);
+    let sulphur = Species::new(&sphere, &0.4, &yellow);
+    let oxygen = Species::new(&sphere, &0.2, &green);
 
     // ==============================
     // Make molecule
     // ==============================
     let mut molecule = Molecule::new();
     molecule.add_atom(&sulphur, &[ 0.0,  0.0, 0.0]);
-    molecule.add_atom(&nickel, &[ 0.5,  0.5,  0.5]);
-    molecule.add_atom(&nickel, &[ 0.5, -0.5,  0.5]);
-    molecule.add_atom(&nickel, &[-0.5,  0.5,  0.5]);
+    molecule.add_atom(&oxygen, &[ 0.5,  0.5,  0.5]);
+    molecule.add_atom(&oxygen, &[ 0.5, -0.5,  0.5]);
+    molecule.add_atom(&oxygen, &[-0.5,  0.5,  0.5]);
     molecule.add_atom(&nickel, &[-0.5, -0.5,  0.5]);
     molecule.add_atom(&nickel, &[ 0.5,  0.5, -0.5]);
     molecule.add_atom(&nickel, &[ 0.5, -0.5, -0.5]);
@@ -783,10 +882,7 @@ fn main() {
     // ==============================
     // Run everything
     // ==============================
-    let mut i = 0;
-    let spin_divide = 10;
 
-    // this probably wants to be somewhere in the loop.
     let params = glium::DrawParameters {
         depth: glium::Depth {
             test: glium::DepthTest::IfLess,
@@ -799,16 +895,9 @@ fn main() {
     
     let light_position = [2.0,0.0,0.0,1.0f32];
 
-    let mut rotating = true;
     let mut fxaa_enabled = true;
     let fxaa = fxaa::FxaaSystem::new(&display);
     loop {
-        for line in camera.view_matrix().contents() {
-	    println!("{:5.6} {:5.6} {:5.6} {:5.6}",line[0],line[1],line[2],line[3]);
-	}
-	println!("");
-        let angle = i/spin_divide;
-        camera.set_angles(&angle, &45, &angle, &2);
         let light_position = *camera.view_matrix() * light_position;
 
         molecule.rotate_atoms_against_camera(&camera);
@@ -842,19 +931,10 @@ fn main() {
                 // ==============================
                 // Window is modified
                 // ==============================
-                glium::glutin::Event::Closed =>
-                    return,
-                    glium::glutin::Event::KeyboardInput(
-                        glium::glutin::ElementState::Pressed,
-                        _,
-                        Some(glium::glutin::VirtualKeyCode::Space)
-                    )
-                => {
-                    rotating = !rotating;
-                    println!("Rotation is now {}", if rotating { "on" } else { "off" });
-                },
-                
-                glium::glutin::Event::Resized(x, y) => {camera.set_screen_size(&x, &y);},
+                glium::glutin::Event::Closed => return,
+                glium::glutin::Event::Resized(x, y) => {
+		    camera.set_screen_size(&x, &y);
+		},
                 
                 // ==============================
                 // Key is pressed
@@ -862,18 +942,56 @@ fn main() {
                 glium::glutin::Event::KeyboardInput (
                     glium::glutin::ElementState::Pressed,
                     _,
-                    Some(glium::glutin::VirtualKeyCode::Up)
-                ) => {
-                    fxaa_enabled = !fxaa_enabled;
-                    println!("FXAA is now {}", if fxaa_enabled { "on" } else { "off" });
+                    Some(key)
+                ) => match key {
+		    glium::glutin::VirtualKeyCode::Escape => return,
+		    glium::glutin::VirtualKeyCode::Space => {
+                        fxaa_enabled = !fxaa_enabled;
+                        println! (
+		            "FXAA is now {}",
+		            if fxaa_enabled { "on" } else { "off" }
+		        );
+	            },
+		    glium::glutin::VirtualKeyCode::Up => {
+		        camera.zoom_in();
+			println! ("Zooming in");
+		    },
+		    glium::glutin::VirtualKeyCode::Down => {
+		        camera.zoom_out();
+			println!("Zooming out");
+		    },
+		    glium::glutin::VirtualKeyCode::Right => {
+		        camera.spin_clockwise();
+			println! ("Spinning clockwise");
+		    },
+		    glium::glutin::VirtualKeyCode::Left => {
+		        camera.spin_anticlockwise();
+			println! ("Spinning anticlockwise");
+		    },
+		    glium::glutin::VirtualKeyCode::K => {
+		        camera.azimuth_up();
+			println! ("Azimuthing up");
+		    },
+		    glium::glutin::VirtualKeyCode::J => {
+		        camera.azimuth_down();
+			println! ("Azimuthing down");
+		    },
+		    glium::glutin::VirtualKeyCode::H => {
+		        camera.orbit_left();
+			println! ("Orbiting left");
+		    },
+		    glium::glutin::VirtualKeyCode::L => {
+		        camera.orbit_right();
+			println! ("Orbiting right");
+		    },
+		    _ => {},
                 },
-                
+
                 // ==============================
                 // Other
                 // ==============================
                 _ => ()
             }
         }
-        if rotating { i +=1 };
     }
 }
