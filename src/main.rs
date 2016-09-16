@@ -316,8 +316,8 @@ impl Camera {
             w = w/h;
             h = 1.0;
         } else {
-            w = 1.0;
             h = h/w;
+            w = 1.0;
         }
         
         let s = 1.0/(self._field_of_view*f32::consts::PI/360.0).tan();
