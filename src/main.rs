@@ -201,10 +201,10 @@ impl<'a> Atom<'a> {
         ]);
 
         let orbital_matrix = Matrix::new ([
-            [ *in_camera.cos_theta(), 0.0, *in_camera.sin_theta(), 0.0],
-            [ 0.0                   , 1.0, 0.0                   , 0.0],
-            [-*in_camera.sin_theta(), 0.0, *in_camera.cos_theta(), 0.0],
-            [ 0.0                   , 0.0, 0.0                   , 1.0]
+            [*in_camera.cos_theta(), 0.0, -*in_camera.sin_theta(), 0.0],
+            [0.0                   , 1.0,  0.0                   , 0.0],
+            [*in_camera.sin_theta(), 0.0,  *in_camera.cos_theta(), 0.0],
+            [0.0                   , 0.0,  0.0                   , 1.0]
         ]);
 
         let azimuthal_matrix = Matrix::new ([
@@ -362,7 +362,7 @@ impl Camera {
     }
     fn azimuth_up (&mut self) {
         let phi_change = (5.0*self._cos_psi).round() as i32;
-	let theta_change = (-5.0*self._sin_psi).round() as i32;
+	let theta_change = (5.0*self._sin_psi).round() as i32;
 	self._phi_degrees += phi_change;
 	self._theta_degrees += theta_change;
 	if self._phi_degrees > 90 {
@@ -383,7 +383,7 @@ impl Camera {
     }
     fn azimuth_down (&mut self) {
         let phi_change = (-5.0*self._cos_psi).round() as i32;
-	let theta_change = (5.0*self._sin_psi).round() as i32;
+	let theta_change = (-5.0*self._sin_psi).round() as i32;
 	self._phi_degrees += phi_change;
 	self._theta_degrees += theta_change;
 	if self._phi_degrees > 90 {
@@ -403,10 +403,12 @@ impl Camera {
 	self.update();
     }
     fn orbit_right (&mut self) {
-        let phi_change = (5.0*self._sin_psi).round() as i32;
-	let theta_change = (-5.0*self._cos_psi).round() as i32;
+        let phi_change = (5.0*self._sin_psi*self._cos_phi).round() as i32;
+	let theta_change = (5.0*self._cos_psi*self._cos_phi).round() as i32;
+	let psi_change = (5.0*self._sin_phi).round() as i32;
 	self._phi_degrees += phi_change;
 	self._theta_degrees += theta_change;
+	self._psi_degrees += psi_change;
 	if self._phi_degrees > 90 {
 	    self._phi_degrees = 180-self._phi_degrees;
 	    self._theta_degrees += 180;
@@ -424,10 +426,12 @@ impl Camera {
 	self.update();
     }
     fn orbit_left (&mut self) {
-        let phi_change = (-5.0*self._sin_psi).round() as i32;
-	let theta_change = (5.0*self._cos_psi).round() as i32;
+        let phi_change = (-5.0*self._sin_psi*self._cos_phi).round() as i32;
+	let theta_change = (-5.0*self._cos_psi*self._cos_phi).round() as i32;
+	let psi_change = (-5.0*self._sin_phi).round() as i32;
 	self._phi_degrees += phi_change;
 	self._theta_degrees += theta_change;
+	self._psi_degrees += psi_change;
 	if self._phi_degrees > 90 {
 	    self._phi_degrees = 180-self._phi_degrees;
 	    self._theta_degrees += 180;
@@ -484,10 +488,10 @@ impl Camera {
         self._cos_theta =  theta.cos();
         self._sin_theta =  theta.sin();
         let orbital_matrix = Matrix::new([
-            [ self._cos_theta, 0.0, -self._sin_theta, 0.0],
-            [ 0.0            , 1.0,  0.0            , 0.0],
-            [ self._sin_theta, 0.0,  self._cos_theta, 0.0],
-            [ 0.0            , 0.0,  0.0            , 1.0]
+            [ self._cos_theta, 0.0, self._sin_theta, 0.0],
+            [ 0.0            , 1.0, 0.0            , 0.0],
+            [-self._sin_theta, 0.0, self._cos_theta, 0.0],
+            [ 0.0            , 0.0, 0.0            , 1.0]
         ]);
 
         // phi is the azimuthal angle
