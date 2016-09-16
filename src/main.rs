@@ -191,35 +191,40 @@ impl<'a> Atom<'a> {
     fn species(&self) -> &Species<'a> {&self._species}
     fn model_matrix(&self) -> &Matrix {&self._model_matrix}
 
-    fn rotate_against_camera(&mut self, in_angles : &[f32;4]) {
+    fn rotate_against_camera(&mut self, in_camera : &Camera) {
 
-        let cos_theta = in_angles[0];
-        let sin_theta = in_angles[1];
-        let cos_phi = in_angles[2];
-        let sin_phi = in_angles[3];
-
-        let translation_and_scaling_matrix = Matrix::new([
-                [*self._species.size(), 0.0                  , 0.0                  , self._position[0]],
-                [0.0                  , *self._species.size(), 0.0                  , self._position[1]],
-                [0.0                  , 0.0                  , *self._species.size(), self._position[2]],
-                [0.0                  , 0.0                  , 0.0                  , 1.0              ]
+        let translation_and_scaling_matrix = Matrix::new ([
+                [*self._species.size(), 0.0, 0.0, self._position[0]],
+                [0.0, *self._species.size(), 0.0, self._position[1]],
+                [0.0, 0.0, *self._species.size(), self._position[2]],
+                [0.0, 0.0, 0.0                  , 1.0              ]
         ]);
 
-        let orbital_matrix = Matrix::new([
-            [ cos_theta, 0.0, sin_theta, 0.0],
-            [ 0.0      , 1.0, 0.0      , 0.0],
-            [-sin_theta, 0.0, cos_theta, 0.0],
-            [ 0.0      , 0.0, 0.0      , 1.0]
+        let orbital_matrix = Matrix::new ([
+            [ *in_camera.cos_theta(), 0.0, *in_camera.sin_theta(), 0.0],
+            [ 0.0                   , 1.0, 0.0                   , 0.0],
+            [-*in_camera.sin_theta(), 0.0, *in_camera.cos_theta(), 0.0],
+            [ 0.0                   , 0.0, 0.0                   , 1.0]
         ]);
 
-        let azimuthal_matrix = Matrix::new([
-            [1.0,  0.0    ,  0.0    , 0.0],
-            [0.0,  cos_phi,  sin_phi, 0.0],
-            [0.0, -sin_phi,  cos_phi, 0.0],
-            [0.0,  0.0    ,  0.0    , 1.0]
+        let azimuthal_matrix = Matrix::new ([
+            [1.0,  0.0                 , 0.0                 , 0.0],
+            [0.0,  *in_camera.cos_phi(), *in_camera.sin_phi(), 0.0],
+            [0.0, -*in_camera.sin_phi(), *in_camera.cos_phi(), 0.0],
+            [0.0,  0.0                 , 0.0                 , 1.0]
         ]);
 
-        self._model_matrix = translation_and_scaling_matrix * orbital_matrix * azimuthal_matrix;
+	let spin_matrix = Matrix::new ([
+	    [ *in_camera.cos_psi(), *in_camera.sin_psi(), 0.0, 0.0],
+	    [-*in_camera.sin_psi(), *in_camera.cos_psi(), 0.0, 0.0],
+	    [ 0.0                 , 0.0                 , 1.0, 0.0],
+	    [ 0.0                 , 0.0                 , 0.0, 1.0]
+	]);
+
+        self._model_matrix = translation_and_scaling_matrix
+	                   * orbital_matrix
+			   * azimuthal_matrix
+			   * spin_matrix;
     }
 }
 
@@ -243,9 +248,9 @@ impl<'a> Molecule<'a> {
 
     fn atoms(&self) -> &Vec<Atom> {&self._atoms}
 
-    fn rotate_atoms_against_camera(&mut self, angles : &[f32;4]) {
+    fn rotate_atoms_against_camera(&mut self, in_camera : &Camera) {
         for atom in &mut self._atoms {
-            atom.rotate_against_camera(angles);
+            atom.rotate_against_camera(in_camera);
         }
     }
 }
@@ -255,13 +260,21 @@ impl<'a> Molecule<'a> {
 // Camera
 // ============================================================
 struct Camera {
-    _position           : [f32;3],
     _focus              : [f32;3],
+    _theta_degrees      : u32,
+    _cos_theta          : f32,
+    _sin_theta          : f32,
+    _phi_degrees        : u32,
+    _cos_phi            : f32,
+    _sin_phi            : f32,
+    _psi_degrees        : u32,
+    _cos_psi            : f32,
+    _sin_psi            : f32,
+    _r                  : u32,
     _field_of_view      : f32,
     _near_plane         : f32,
     _far_plane          : f32,
     _screen_size        : [u32;2],
-    _angles             : [f32;4],
     _view_matrix        : Matrix,
     _perspective_matrix : Matrix,
     _vp_matrix          : Matrix,
@@ -270,8 +283,11 @@ struct Camera {
 impl Camera {
     fn new (
         in_display       : &glium::backend::glutin_backend::GlutinFacade,
-        in_position      : &[f32;3],
         in_focus         : &[f32;3],
+        in_theta_degrees : &u32,
+        in_phi_degrees   : &u32,
+        in_psi_degrees   : &u32,
+        in_r             : &u32,
         in_field_of_view : &f32,
         in_near_plane    : &f32,
         in_far_plane     : &f32
@@ -280,13 +296,21 @@ impl Camera {
         let (w, h) = (*in_display).get_framebuffer_dimensions();
 
         let mut camera = Camera {
-            _position           : in_position.to_owned(),
             _focus              : in_focus.to_owned(),
+            _theta_degrees      : in_theta_degrees.to_owned(),
+            _cos_theta          : Default::default(),
+	    _sin_theta          : Default::default(),
+	    _phi_degrees        : in_phi_degrees.to_owned(),
+	    _cos_phi            : Default::default(),
+	    _sin_phi            : Default::default(),
+            _psi_degrees        : in_psi_degrees.to_owned(),
+	    _cos_psi            : Default::default(),
+	    _sin_psi            : Default::default(),
+            _r                  : in_r.to_owned(),
             _field_of_view      : in_field_of_view.to_owned(),
             _near_plane         : in_near_plane.to_owned(),
             _far_plane          : in_far_plane.to_owned(),
             _screen_size        : [w, h],
-            _angles             : [0.0;4],                    // dummy value
             _view_matrix        : Matrix::new([[0.0;4];4]),   // dummy value
             _perspective_matrix : Matrix::new([[0.0;4];4]),   // dummy value
             _vp_matrix          : Matrix::new([[0.0;4];4]),   // dummy value
@@ -294,14 +318,33 @@ impl Camera {
         camera.update();
         camera
     }
-
-    fn angles(&self) -> &[f32;4] {&self._angles}
+    
+    fn cos_theta(&self) -> &f32 {&self._cos_theta}
+    fn sin_theta(&self) -> &f32 {&self._sin_theta}
+    fn cos_phi(&self) -> &f32 {&self._cos_phi}
+    fn sin_phi(&self) -> &f32 {&self._sin_phi}
+    fn cos_psi(&self) -> &f32 {&self._cos_psi}
+    fn sin_psi(&self) -> &f32 {&self._sin_psi}
     fn view_matrix(&self) -> &Matrix {&self._view_matrix}
     fn vp_matrix(&self) -> &Matrix {&self._vp_matrix}
 
-    fn set_position(&mut self, in_position : [f32;3]) {
+    /*fn set_position(&mut self, in_position : [f32;3]) {
         self._position = in_position;
         self.update();
+    }*/
+    
+    fn set_angles(
+        &mut self,
+        in_theta_degrees : &u32,
+        in_phi_degrees   : &u32,
+        in_psi_degrees   : &u32,
+        in_r             : &u32
+    ) {
+        self._theta_degrees = in_theta_degrees.to_owned();
+        self._phi_degrees = in_phi_degrees.to_owned();
+	self._psi_degrees = in_psi_degrees.to_owned();
+	self._r = in_r.to_owned();
+	self.update();
     }
     
     fn set_screen_size(&mut self, in_x : &u32, in_y : &u32) {
@@ -330,39 +373,61 @@ impl Camera {
             [0.0, 0.0, 1.0        , 0.0          ]
         ]);
         
-        let x = self._focus[0]-self._position[0];
-        let y = self._focus[1]-self._position[1];
-        let z = self._focus[2]-self._position[2];
+	// Translate so that the focus is centred.
+        let focus_translation_matrix = Matrix::new([
+            [1.0, 0.0, 0.0, -self._focus[0]],
+            [0.0, 1.0, 0.0, -self._focus[1]],
+            [0.0, 0.0, 1.0, -self._focus[2]],
+            [0.0, 0.0, 0.0,  1.0           ]
+        ]);
 
         // theta is the orbital angle
-        let cos_theta =  z/(x*x+z*z).sqrt();
-        let sin_theta =  x/(x*x+z*z).sqrt();
+	let theta = (self._theta_degrees as f32)*std::f32::consts::PI/180.0;
+        self._cos_theta =  theta.cos();
+        self._sin_theta =  theta.sin();
         let orbital_matrix = Matrix::new([
-            [ cos_theta, 0.0,-sin_theta, 0.0],
-            [ 0.0      , 1.0, 0.0      , 0.0],
-            [ sin_theta, 0.0, cos_theta, 0.0],
-            [ 0.0      , 0.0, 0.0      , 1.0]
+            [ self._cos_theta, 0.0, -self._sin_theta, 0.0],
+            [ 0.0            , 1.0,  0.0            , 0.0],
+            [ self._sin_theta, 0.0,  self._cos_theta, 0.0],
+            [ 0.0            , 0.0,  0.0            , 1.0]
         ]);
 
         // phi is the azimuthal angle
-        let cos_phi = (x*x+z*z).sqrt()/(x*x+y*y+z*z).sqrt();
-        let sin_phi = y/(x*x+y*y+z*z).sqrt();
+	let phi = (self._phi_degrees as f32)*std::f32::consts::PI/180.0;
+        self._cos_phi = phi.cos();
+        self._sin_phi = phi.sin();
         let azimuthal_matrix = Matrix::new([
-            [1.0,  0.0    ,  0.0    , 0.0],
-            [0.0,  cos_phi, -sin_phi, 0.0],
-            [0.0,  sin_phi,  cos_phi, 0.0],
-            [0.0,  0.0    ,  0.0    , 1.0]
+            [1.0, 0.0          ,  0.0          , 0.0],
+            [0.0, self._cos_phi, -self._sin_phi, 0.0],
+            [0.0, self._sin_phi,  self._cos_phi, 0.0],
+            [0.0, 0.0          ,  0.0          , 1.0]
         ]);
+        
+        // psi is the spin angle
+        let psi = (self._psi_degrees as f32)*std::f32::consts::PI/180.0;
+	self._cos_psi = psi.cos();
+	self._sin_psi = psi.sin();
+	let spin_matrix = Matrix::new([
+	    [self._cos_psi, -self._sin_psi, 0.0, 0.0],
+	    [self._sin_psi,  self._cos_psi, 0.0, 0.0],
+	    [0.0          ,  1.0          , 0.0, 0.0],
+	    [0.0          ,  0.0          , 0.0, 1.0]
+	]);
 
-        let translation_matrix = Matrix::new([
-            [1.0, 0.0, 0.0, -self._position[0]],
-            [0.0, 1.0, 0.0, -self._position[1]],
-            [0.0, 0.0, 1.0, -self._position[2]],
-            [0.0, 0.0, 0.0,  1.0              ]
-        ]);
+	// r is the distance of the camera from the focus
+	let radius = self._r as f32;
+	let zoom_matrix = Matrix::new([
+	    [1.0, 0.0, 0.0, 0.0   ],
+	    [0.0, 1.0, 0.0, 0.0   ],
+	    [0.0, 0.0, 1.0, radius],
+	    [0.0, 0.0, 0.0, 1.0   ]
+	]);
 
-        self._angles = [cos_theta, sin_theta, cos_phi, sin_phi];
-        self._view_matrix = azimuthal_matrix*orbital_matrix*translation_matrix;
+        self._view_matrix = zoom_matrix
+	                  * spin_matrix
+	                  * azimuthal_matrix
+			  * orbital_matrix
+			  * focus_translation_matrix;
         self._vp_matrix = self._perspective_matrix*self._view_matrix;
     }
 }
@@ -690,10 +755,13 @@ fn main() {
     // ==============================
     // Make camera
     // ==============================
-    // camera position
-    let camera_position = [0.0,0.0,2.0];
     // camera focus (the point the camera is pointing at)
     let camera_focus = [0.0,0.0,0.0];
+    // camera position
+    let camera_theta = 0;
+    let camera_phi = 0;
+    let camera_psi = 0;
+    let camera_r = 2;
     // field of view, in degrees
     let field_of_view = 90.0;
     // near and far clipping planes
@@ -702,8 +770,11 @@ fn main() {
 
     let mut camera = Camera::new (
         &display,
-        &camera_position,
         &camera_focus,
+	&camera_theta,
+	&camera_phi,
+	&camera_psi,
+	&camera_r,
         &field_of_view,
         &near_plane,
         &far_plane
@@ -713,7 +784,7 @@ fn main() {
     // Run everything
     // ==============================
     let mut i = 0;
-    let spin_rate = 0.0005;
+    let spin_divide = 100;
 
     // this probably wants to be somewhere in the loop.
     let params = glium::DrawParameters {
@@ -732,11 +803,11 @@ fn main() {
     let mut fxaa_enabled = true;
     let fxaa = fxaa::FxaaSystem::new(&display);
     loop {
-        let angle = (i as f32)*spin_rate;
-        camera.set_position([2.0*angle.cos(),1.0,2.0*angle.sin()]);
+        let angle = i/spin_divide;
+        camera.set_angles(&angle, &0, &0, &2);
         let light_position = *camera.view_matrix() * light_position;
 
-        molecule.rotate_atoms_against_camera(camera.angles());
+        molecule.rotate_atoms_against_camera(&camera);
 
         let mut target = display.draw();
         fxaa::draw(&fxaa, &mut target, fxaa_enabled, |target| {
