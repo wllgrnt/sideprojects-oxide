@@ -410,7 +410,7 @@ impl Camera {
 	let spin_matrix = Matrix::new([
 	    [self._cos_psi, -self._sin_psi, 0.0, 0.0],
 	    [self._sin_psi,  self._cos_psi, 0.0, 0.0],
-	    [0.0          ,  1.0          , 0.0, 0.0],
+	    [0.0          ,  0.0          , 1.0, 0.0],
 	    [0.0          ,  0.0          , 0.0, 1.0]
 	]);
 
@@ -784,7 +784,7 @@ fn main() {
     // Run everything
     // ==============================
     let mut i = 0;
-    let spin_divide = 100;
+    let spin_divide = 10;
 
     // this probably wants to be somewhere in the loop.
     let params = glium::DrawParameters {
@@ -803,8 +803,12 @@ fn main() {
     let mut fxaa_enabled = true;
     let fxaa = fxaa::FxaaSystem::new(&display);
     loop {
+        for line in camera.view_matrix().contents() {
+	    println!("{:5.6} {:5.6} {:5.6} {:5.6}",line[0],line[1],line[2],line[3]);
+	}
+	println!("");
         let angle = i/spin_divide;
-        camera.set_angles(&angle, &0, &0, &2);
+        camera.set_angles(&angle, &45, &angle, &2);
         let light_position = *camera.view_matrix() * light_position;
 
         molecule.rotate_atoms_against_camera(&camera);
