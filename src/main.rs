@@ -194,10 +194,10 @@ impl<'a> Atom<'a> {
     fn rotate_against_camera(&mut self, in_camera : &Camera) {
 
         let translation_and_scaling_matrix = Matrix::new ([
-                [*self._species.size(), 0.0, 0.0, self._position[0]],
-                [0.0, *self._species.size(), 0.0, self._position[1]],
-                [0.0, 0.0, *self._species.size(), self._position[2]],
-                [0.0, 0.0, 0.0                  , 1.0              ]
+            [*self._species.size(), 0.0, 0.0, self._position[0]],
+            [0.0, *self._species.size(), 0.0, self._position[1]],
+            [0.0, 0.0, *self._species.size(), self._position[2]],
+            [0.0, 0.0, 0.0                  , 1.0              ]
         ]);
 
         let orbital_matrix = Matrix::new ([
@@ -261,16 +261,18 @@ impl<'a> Molecule<'a> {
 // ============================================================
 struct Camera {
     _focus              : [f32;3],
-    _theta_degrees      : i32,
+    _theta              : f32,
     _cos_theta          : f32,
     _sin_theta          : f32,
-    _phi_degrees        : i32,
+    _phi                : f32,
     _cos_phi            : f32,
     _sin_phi            : f32,
-    _psi_degrees        : i32,
+    _psi                : f32,
     _cos_psi            : f32,
     _sin_psi            : f32,
-    _r                  : u32,
+    _r                  : f32,
+    _angular_step       : f32,
+    _r_step             : f32,
     _field_of_view      : f32,
     _near_plane         : f32,
     _far_plane          : f32,
@@ -282,32 +284,34 @@ struct Camera {
 
 impl Camera {
     fn new (
-        in_display       : &glium::backend::glutin_backend::GlutinFacade,
-        in_focus         : &[f32;3],
-        in_theta_degrees : &i32,
-        in_phi_degrees   : &i32,
-        in_psi_degrees   : &i32,
-        in_r             : &u32,
-        in_field_of_view : &f32,
-        in_near_plane    : &f32,
-        in_far_plane     : &f32
+        in_display               : &glium::backend::glutin_backend::GlutinFacade,
+        in_focus                 : &[f32;3],
+        in_theta_degrees         : &f32,
+        in_phi_degrees           : &f32,
+        in_psi_degrees           : &f32,
+        in_r                     : &f32,
+        in_field_of_view_degrees : &f32,
+        in_near_plane            : &f32,
+        in_far_plane             : &f32
     ) -> Camera {
 
         let (w, h) = (*in_display).get_framebuffer_dimensions();
 
         let mut camera = Camera {
             _focus              : in_focus.to_owned(),
-            _theta_degrees      : in_theta_degrees.to_owned(),
+            _theta              : in_theta_degrees*f32::consts::PI/180.0,
             _cos_theta          : Default::default(),
 	    _sin_theta          : Default::default(),
-	    _phi_degrees        : in_phi_degrees.to_owned(),
+	    _phi                : in_phi_degrees*f32::consts::PI/180.0,
 	    _cos_phi            : Default::default(),
 	    _sin_phi            : Default::default(),
-            _psi_degrees        : in_psi_degrees.to_owned(),
+            _psi                : in_psi_degrees*f32::consts::PI/180.0,
 	    _cos_psi            : Default::default(),
 	    _sin_psi            : Default::default(),
             _r                  : in_r.to_owned(),
-            _field_of_view      : in_field_of_view.to_owned(),
+            _angular_step       : f32::consts::PI/36.0,
+            _r_step             : 0.1,
+            _field_of_view      : in_field_of_view_degrees*f32::consts::PI/180.0,
             _near_plane         : in_near_plane.to_owned(),
             _far_plane          : in_far_plane.to_owned(),
             _screen_size        : [w, h],
@@ -330,123 +334,48 @@ impl Camera {
     
     fn set_angles(
         &mut self,
-        in_theta_degrees : &i32,
-        in_phi_degrees   : &i32,
-        in_psi_degrees   : &i32,
-        in_r             : &u32
+        in_theta_degrees : &f32,
+        in_phi_degrees   : &f32,
+        in_psi_degrees   : &f32,
+        in_r             : &f32
     ) {
-        self._theta_degrees = in_theta_degrees.to_owned();
-        self._phi_degrees = in_phi_degrees.to_owned();
-	self._psi_degrees = in_psi_degrees.to_owned();
+        self._theta = in_theta_degrees*f32::consts::PI/180.0;
+        self._phi = in_phi_degrees*f32::consts::PI/180.0;
+	self._psi = in_psi_degrees*f32::consts::PI/180.0;
 	self._r = in_r.to_owned();
 	self.update();
     }
 
-    fn zoom_in (&mut self) {if self._r > 1 {self._r -= 1} self.update();}
-    fn zoom_out (&mut self) {self._r += 1; self.update();}
+    fn zoom_in (&mut self) {if self._r > self._r_step {self._r -= self._r_step} self.update();}
+    fn zoom_out (&mut self) {self._r += self._r_step; self.update();}
     fn spin_clockwise (&mut self) {
-        if self._psi_degrees == 355 {
-	    self._psi_degrees = 0;
-	} else {
-	    self._psi_degrees += 5;
-	}
+	self._psi += self._angular_step;
 	self.update();
     }
     fn spin_anticlockwise (&mut self) {
-        if self._psi_degrees == 0 {
-	    self._psi_degrees = 355;
-	} else {
-	    self._psi_degrees -= 5;
-	}
+	self._psi -= self._angular_step;
 	self.update();
     }
     fn azimuth_up (&mut self) {
-        let phi_change = (5.0*self._cos_psi).round() as i32;
-	let theta_change = (5.0*self._sin_psi).round() as i32;
-	self._phi_degrees += phi_change;
-	self._theta_degrees += theta_change;
-	if self._phi_degrees > 90 {
-	    self._phi_degrees = 180-self._phi_degrees;
-	    self._theta_degrees += 180;
-	    self._psi_degrees += 180;
-	}
-	if self._phi_degrees < -90 {
-	    self._phi_degrees = -180-self._phi_degrees;
-	    self._theta_degrees += 180;
-	    self._psi_degrees += 180;
-	}
-	if self._theta_degrees < 0 {self._theta_degrees += 360;}
-	else if self._theta_degrees >= 360 {self._theta_degrees -= 360;}
-	if self._psi_degrees < 0 {self._psi_degrees += 360;}
-	else if self._psi_degrees >= 360 {self._psi_degrees -= 360;}
-	self.update();
+        // let new_sin_theta = self._angular_step.sin()*self._cos_psi*self._cos_theta
+        //                   + self._angular_step.cos()*self._sin_theta;
+        // let new_cos_theta = (1-new_sin_theta*new_sin_theta).sqrt();
+        // let new_sin_psi = self._sin_psi*self._cos_theta/new_cos_theta;
+
+	// implement this using quaternions. Euler angle changes are such a mess.
+        self.update();
     }
     fn azimuth_down (&mut self) {
-        let phi_change = (-5.0*self._cos_psi).round() as i32;
-	let theta_change = (-5.0*self._sin_psi).round() as i32;
-	self._phi_degrees += phi_change;
-	self._theta_degrees += theta_change;
-	if self._phi_degrees > 90 {
-	    self._phi_degrees = 180-self._phi_degrees;
-	    self._theta_degrees += 180;
-	    self._psi_degrees += 180;
-	}
-	if self._phi_degrees < -90 {
-	    self._phi_degrees = -180-self._phi_degrees;
-	    self._theta_degrees += 180;
-	    self._psi_degrees += 180;
-	}
-	if self._theta_degrees < 0 {self._theta_degrees += 360;}
-	else if self._theta_degrees >= 360 {self._theta_degrees -= 360;}
-	if self._psi_degrees < 0 {self._psi_degrees += 360;}
-	else if self._psi_degrees >= 360 {self._psi_degrees -= 360;}
-	self.update();
+	// implement this using quaternions. Euler angle changes are such a mess.
+        self.update();
     }
     fn orbit_right (&mut self) {
-        let phi_change = (5.0*self._sin_psi*self._cos_phi).round() as i32;
-	let theta_change = (5.0*self._cos_psi*self._cos_phi).round() as i32;
-	let psi_change = (5.0*self._sin_phi).round() as i32;
-	self._phi_degrees += phi_change;
-	self._theta_degrees += theta_change;
-	self._psi_degrees += psi_change;
-	if self._phi_degrees > 90 {
-	    self._phi_degrees = 180-self._phi_degrees;
-	    self._theta_degrees += 180;
-	    self._psi_degrees += 180;
-	}
-	if self._phi_degrees < -90 {
-	    self._phi_degrees = -180-self._phi_degrees;
-	    self._theta_degrees += 180;
-	    self._psi_degrees += 180;
-	}
-	if self._theta_degrees < 0 {self._theta_degrees += 360;}
-	else if self._theta_degrees >= 360 {self._theta_degrees -= 360;}
-	if self._psi_degrees < 0 {self._psi_degrees += 360;}
-	else if self._psi_degrees >= 360 {self._psi_degrees -= 360;}
-	self.update();
+	// implement this using quaternions. Euler angle changes are such a mess.
+        self.update();
     }
     fn orbit_left (&mut self) {
-        let phi_change = (-5.0*self._sin_psi*self._cos_phi).round() as i32;
-	let theta_change = (-5.0*self._cos_psi*self._cos_phi).round() as i32;
-	let psi_change = (-5.0*self._sin_phi).round() as i32;
-	self._phi_degrees += phi_change;
-	self._theta_degrees += theta_change;
-	self._psi_degrees += psi_change;
-	if self._phi_degrees > 90 {
-	    self._phi_degrees = 180-self._phi_degrees;
-	    self._theta_degrees += 180;
-	    self._psi_degrees += 180;
-	}
-	if self._phi_degrees < -90 {
-	    self._phi_degrees = -180-self._phi_degrees;
-	    self._theta_degrees += 180;
-	    self._psi_degrees += 180;
-	}
-	if self._theta_degrees < 0 {self._theta_degrees += 360;}
-	else if self._theta_degrees >= 360 {self._theta_degrees -= 360;}
-	if self._psi_degrees < 0 {self._psi_degrees += 360;}
-	else if self._psi_degrees >= 360 {self._psi_degrees -= 360;}
-	self.update();
+	// implement this using quaternions. Euler angle changes are such a mess.
+        self.update();
     }
     
     fn set_screen_size(&mut self, in_x : &u32, in_y : &u32) {
@@ -454,7 +383,7 @@ impl Camera {
     }
     
     fn update(&mut self) {
-        
+        // Update perspective matrix
         let mut w = self._screen_size[0] as f32;
         let mut h = self._screen_size[1] as f32;
         if w > h {
@@ -465,7 +394,7 @@ impl Camera {
             w = 1.0;
         }
         
-        let s = 1.0/(self._field_of_view*f32::consts::PI/360.0).tan();
+        let s = 1.0/(self._field_of_view/2.0).tan();
         let n = self._near_plane.to_owned();
         let f = self._far_plane.to_owned();
         self._perspective_matrix = Matrix::new([
@@ -475,7 +404,25 @@ impl Camera {
             [0.0, 0.0, 1.0        , 0.0          ]
         ]);
         
-	// Translate so that the focus is centred.
+        // Update any angles which have gone outside their bounds.
+        let pi = f32::consts::PI;
+        let hpi = f32::consts::PI/2.0;
+        let tpi = 2.0*f32::consts::PI;
+
+	if self._phi > hpi {
+	    self._phi = pi-self._phi;
+	    self._theta += pi;
+	    self._psi += pi;
+	}
+	if self._phi < -hpi {
+	    self._phi = -pi-self._phi;
+	    self._theta += pi;
+	    self._psi += pi;
+	}
+	self._theta = (self._theta%tpi+tpi)%tpi;
+        self._psi = (self._psi%tpi+tpi)%tpi;
+
+        // Translate so that the focus is centred.
         let focus_translation_matrix = Matrix::new([
             [1.0, 0.0, 0.0, -self._focus[0]],
             [0.0, 1.0, 0.0, -self._focus[1]],
@@ -484,9 +431,8 @@ impl Camera {
         ]);
 
         // theta is the orbital angle
-	let theta = (self._theta_degrees as f32)*std::f32::consts::PI/180.0;
-        self._cos_theta =  theta.cos();
-        self._sin_theta =  theta.sin();
+        self._cos_theta = self._theta.cos();
+        self._sin_theta = self._theta.sin();
         let orbital_matrix = Matrix::new([
             [ self._cos_theta, 0.0, self._sin_theta, 0.0],
             [ 0.0            , 1.0, 0.0            , 0.0],
@@ -495,9 +441,8 @@ impl Camera {
         ]);
 
         // phi is the azimuthal angle
-	let phi = (self._phi_degrees as f32)*std::f32::consts::PI/180.0;
-        self._cos_phi = phi.cos();
-        self._sin_phi = phi.sin();
+        self._cos_phi = self._phi.cos();
+        self._sin_phi = self._phi.sin();
         let azimuthal_matrix = Matrix::new([
             [1.0,  0.0          , 0.0          , 0.0],
             [0.0,  self._cos_phi, self._sin_phi, 0.0],
@@ -506,9 +451,8 @@ impl Camera {
         ]);
         
         // psi is the spin angle
-        let psi = (self._psi_degrees as f32)*std::f32::consts::PI/180.0;
-	self._cos_psi = psi.cos();
-	self._sin_psi = psi.sin();
+	self._cos_psi = self._psi.cos();
+	self._sin_psi = self._psi.sin();
 	let spin_matrix = Matrix::new([
 	    [ self._cos_psi, self._sin_psi, 0.0, 0.0],
 	    [-self._sin_psi, self._cos_psi, 0.0, 0.0],
@@ -517,12 +461,11 @@ impl Camera {
 	]);
 
 	// r is the distance of the camera from the focus
-	let radius = self._r as f32;
 	let zoom_matrix = Matrix::new([
-	    [1.0, 0.0, 0.0, 0.0   ],
-	    [0.0, 1.0, 0.0, 0.0   ],
-	    [0.0, 0.0, 1.0, radius],
-	    [0.0, 0.0, 0.0, 1.0   ]
+	    [1.0, 0.0, 0.0, 0.0    ],
+	    [0.0, 1.0, 0.0, 0.0    ],
+	    [0.0, 0.0, 1.0, self._r],
+	    [0.0, 0.0, 0.0, 1.0    ]
 	]);
 
         self._view_matrix = zoom_matrix
@@ -861,26 +804,25 @@ fn main() {
     // camera focus (the point the camera is pointing at)
     let camera_focus = [0.0,0.0,0.0];
     // camera position
-    let camera_theta = 0;
-    let camera_phi = 0;
-    let camera_psi = 0;
-    let camera_r = 2;
-    // field of view, in degrees
-    let field_of_view = 90.0;
-    // near and far clipping planes
-    let near_plane = 1.0;
-    let far_plane = 10.0;
+    let camera_theta_degrees = 0.0;
+    let camera_phi_degrees = 0.0;
+    let camera_psi_degrees = 0.0;
+    let camera_r = 2.0;
+    // field of view and clipping planes
+    let camera_field_of_view_degrees = 90.0;
+    let camera_near_plane = 1.0;
+    let camera_far_plane = 10.0;
 
     let mut camera = Camera::new (
         &display,
         &camera_focus,
-	&camera_theta,
-	&camera_phi,
-	&camera_psi,
+	&camera_theta_degrees,
+	&camera_phi_degrees,
+	&camera_psi_degrees,
 	&camera_r,
-        &field_of_view,
-        &near_plane,
-        &far_plane
+        &camera_field_of_view_degrees,
+        &camera_near_plane,
+        &camera_far_plane
     );
 
     // ==============================
@@ -988,6 +930,15 @@ fn main() {
 		        camera.orbit_right();
 			println! ("Orbiting right");
 		    },
+                    glium::glutin::VirtualKeyCode::R => {
+                        camera.set_angles (
+                            &camera_theta_degrees,
+                            &camera_phi_degrees,
+                            &camera_psi_degrees,
+                            &camera_r
+                        );
+                        println! ("Resetting camera");
+                    },
 		    _ => {},
                 },
 
