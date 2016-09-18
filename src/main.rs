@@ -2,134 +2,29 @@
 extern crate glium;
 
 use std::f32;      //pi
-use std::ops::Mul; // multiplication overload
-
 
 mod fxaa;
 mod vertex;
+mod matrix;
+mod model;
+
 use vertex::Vertex;
-
-// ============================================================
-// Matrix
-// ============================================================
-// NB: OpenGL (maybe) treats vectors as row vectors, so matrices should be transposed and multiplication reversed?
-/// A 4x4 matrix for holding transformations.
-#[derive(Copy, Clone)]
-struct Matrix {
-    _contents : [[f32; 4]; 4]
-}
-
-impl Matrix {
-    fn new(in_contents : [[f32; 4]; 4]) -> Matrix {
-        Matrix {
-            _contents: in_contents
-        }
-    }
-
-    fn contents(&self) -> &[[f32;4];4] {&self._contents}
-}
-
-// Matrix multiplication. TODO: use a linear algebra library.
-impl Mul<Matrix> for Matrix {
-    type Output = Matrix;
-
-    fn mul (self, in_other : Matrix) -> Matrix {
-        let a : &[[f32;4];4] = &self._contents;
-        let b : &[[f32;4];4] = &in_other._contents;
-        Matrix::new([[
-            a[0][0]*b[0][0]+a[0][1]*b[1][0]+a[0][2]*b[2][0]+a[0][3]*b[3][0],
-            a[0][0]*b[0][1]+a[0][1]*b[1][1]+a[0][2]*b[2][1]+a[0][3]*b[3][1],
-            a[0][0]*b[0][2]+a[0][1]*b[1][2]+a[0][2]*b[2][2]+a[0][3]*b[3][2],
-            a[0][0]*b[0][3]+a[0][1]*b[1][3]+a[0][2]*b[2][3]+a[0][3]*b[3][3]
-        ], [
-            a[1][0]*b[0][0]+a[1][1]*b[1][0]+a[1][2]*b[2][0]+a[1][3]*b[3][0],
-            a[1][0]*b[0][1]+a[1][1]*b[1][1]+a[1][2]*b[2][1]+a[1][3]*b[3][1],
-            a[1][0]*b[0][2]+a[1][1]*b[1][2]+a[1][2]*b[2][2]+a[1][3]*b[3][2],
-            a[1][0]*b[0][3]+a[1][1]*b[1][3]+a[1][2]*b[2][3]+a[1][3]*b[3][3]
-        ], [
-            a[2][0]*b[0][0]+a[2][1]*b[1][0]+a[2][2]*b[2][0]+a[2][3]*b[3][0],
-            a[2][0]*b[0][1]+a[2][1]*b[1][1]+a[2][2]*b[2][1]+a[2][3]*b[3][1],
-            a[2][0]*b[0][2]+a[2][1]*b[1][2]+a[2][2]*b[2][2]+a[2][3]*b[3][2],
-            a[2][0]*b[0][3]+a[2][1]*b[1][3]+a[2][2]*b[2][3]+a[2][3]*b[3][3]
-        ], [
-            a[3][0]*b[0][0]+a[3][1]*b[1][0]+a[3][2]*b[2][0]+a[3][3]*b[3][0],
-            a[3][0]*b[0][1]+a[3][1]*b[1][1]+a[3][2]*b[2][1]+a[3][3]*b[3][1],
-            a[3][0]*b[0][2]+a[3][1]*b[1][2]+a[3][2]*b[2][2]+a[3][3]*b[3][2],
-            a[3][0]*b[0][3]+a[3][1]*b[1][3]+a[3][2]*b[2][3]+a[3][3]*b[3][3]
-        ]])
-    }
-}
-
-impl Mul<[f32;4]> for Matrix {
-    type Output = [f32;4];
-
-    fn mul (self, in_other : [f32;4]) -> [f32;4] {
-        let a : &[[f32;4];4] = &self._contents;
-        let b : &[f32;4] = &in_other;
-        [
-            a[0][0]*b[0]+a[0][1]*b[1]+a[0][2]*b[2]+a[0][3]*b[3],
-            a[1][0]*b[0]+a[1][1]*b[1]+a[1][2]*b[2]+a[1][3]*b[3],
-            a[2][0]*b[0]+a[2][1]*b[1]+a[2][2]*b[2]+a[2][3]*b[3],
-            a[3][0]*b[0]+a[3][1]*b[1]+a[3][2]*b[2]+a[3][3]*b[3]
-        ]
-    }
-}
-
-// ============================================================
-// Mesh
-// ============================================================
-/// The mesh of a single object (a triangle, a sphere, a goove...)
-struct Mesh<'a> {
-    /// The vertices of the triangles out of which the mesh is made
-    _vertices        : Vec<Vertex>,
-    /// The order in which the vertices should be drawn.
-    _index_type      : glium::index::PrimitiveType,
-    _indices         : Vec<u16>,
-    _program         : &'a glium::Program,
-    _vertex_buffer   : glium::VertexBuffer<Vertex>,
-    _index_buffer    : glium::index::IndexBuffer<u16>,
-}
-
-impl<'a> Mesh<'a> {
-    fn new (
-        in_display    : &glium::backend::glutin_backend::GlutinFacade,
-        in_vertices   : &Vec<Vertex>,
-        in_index_type : &glium::index::PrimitiveType,
-        in_indices    : &Vec<u16>,
-        in_program    : &'a glium::Program,
-    ) -> Mesh<'a> {
-        Mesh {
-            _vertices      : in_vertices.to_owned(),
-            _index_type    : in_index_type.to_owned(),
-            _indices       : in_indices.to_owned(),
-            _vertex_buffer : glium::VertexBuffer::new(in_display, in_vertices).unwrap(),
-            _index_buffer  : glium::index::IndexBuffer::new (
-                in_display,
-                *in_index_type,
-                in_indices,
-            ).unwrap(),
-            _program       : in_program,
-        }
-    }
-
-    fn vertex_buffer(&self) -> &glium::VertexBuffer<Vertex> {&self._vertex_buffer}
-    fn index_buffer(&self) -> &glium::index::IndexBuffer<u16> {&self._index_buffer}
-    fn program(&self) -> &glium::Program {&self._program}
-}
+use matrix::Matrix;
+use model::Model;
 
 
 // ============================================================
 // Species
 // ============================================================
 struct Species<'a> {
-    _mesh   : &'a Mesh<'a>,
+    _mesh   : &'a Model<'a>,
     _size   : f32,
     _colour : [f32;3],
 }
 
 impl<'a> Species<'a> {
     fn new (
-        in_mesh   : &'a Mesh,
+        in_mesh   : &'a Model,
         in_size   : &f32,
         in_colour : &[f32;3],
     ) -> Species<'a> {
@@ -140,7 +35,7 @@ impl<'a> Species<'a> {
         }
     }
 
-    fn mesh(&self) -> &Mesh {&self._mesh}
+    fn mesh(&self) -> &Model {&self._mesh}
     fn size(&self) -> &f32  {&self._size}
     fn colour(&self) -> &[f32;3] {&self._colour}
 }
@@ -634,7 +529,7 @@ fn main() {
     let triangle_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
     let triangle_vertex1 = Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]);
     let triangle_vertex2 = Vertex::new([ 1.0,  0.0, 0.0], [0.0, 0.0, 1.0]);
-    let triangle = Mesh::new(
+    let triangle = Model::new(
         &display,
         &vec![triangle_vertex0, triangle_vertex1, triangle_vertex2],
         &glium::index::PrimitiveType::TriangleStrip,
@@ -647,7 +542,7 @@ fn main() {
     let square_vertex1 = Vertex::new([ 1.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
     let square_vertex2 = Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]);
     let square_vertex3 = Vertex::new([ 1.0,  1.0, 0.0], [0.0, 0.0, 1.0]);
-    let square = Mesh::new(
+    let square = Model::new(
         &display,
         &vec![square_vertex0, square_vertex1, square_vertex2, square_vertex3],
         &glium::index::PrimitiveType::TriangleStrip,
@@ -655,7 +550,7 @@ fn main() {
         &program_polyhedron,
     );
 
-    let tetrahedron = Mesh::new(
+    let tetrahedron = Model::new(
         &display,
         &vec![
             Vertex::new([-1.0,  0.0, -sr_1_2],[-1.0,  0.0, -sr_1_2]),
@@ -671,7 +566,7 @@ fn main() {
     // A cube (will likely get weird rounded edges because of normal interpolation.
     // Different vertices should be used for different faces at each corner. (not needed since atoms are spheres.)
     // n.b. uses TrianglesList not TriangleStrip, because triangle strips don't do corners.
-    let cube = Mesh::new(
+    let cube = Model::new(
         &display,
         &vec![
             Vertex::new([-1.0, -1.0, -1.0],[-1.0, -1.0, -1.0]),
@@ -697,7 +592,7 @@ fn main() {
 
     // An icosahedron
     let phi = 2.0/(1.0+5.0f32.sqrt());
-    let icosahedron = Mesh::new(
+    let icosahedron = Model::new(
         &display,
         &vec![
             Vertex::new([ 0.0,  1.0,  phi],[ 0.0,  1.0,  phi]),
@@ -744,7 +639,7 @@ fn main() {
     let sphere_vertex1 = Vertex::new([ 1.0, -1.0, 0.0], [ 1.0, -1.0, 0.0]);
     let sphere_vertex2 = Vertex::new([-1.0,  1.0, 0.0], [-1.0,  1.0, 0.0]);
     let sphere_vertex3 = Vertex::new([ 1.0,  1.0, 0.0], [ 1.0,  1.0, 0.0]);
-    let sphere = Mesh::new(
+    let sphere = Model::new(
         &display,
         &vec![sphere_vertex0, sphere_vertex1, sphere_vertex2, sphere_vertex3],
         &glium::index::PrimitiveType::TriangleStrip,
