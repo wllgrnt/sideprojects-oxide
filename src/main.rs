@@ -9,7 +9,6 @@ mod matrix;
 mod model;
 mod program;
 
-use vertex::Vertex;
 use matrix::Matrix;
 use model::Model;
 
@@ -394,140 +393,18 @@ fn main() {
     let default_programs = program::DefaultPrograms::new(&display);
 
     // ==============================
-    // Make meshes
+    // Make models
     // ==============================
-    let sr_1_2 = 1.0/2.0f32.sqrt();
 
-    // The positions of each vertex of the triangle
-    let triangle_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
-    let triangle_vertex1 = Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]);
-    let triangle_vertex2 = Vertex::new([ 1.0,  0.0, 0.0], [0.0, 0.0, 1.0]);
-    let triangle = Model::new(
-        &display,
-        &vec![triangle_vertex0, triangle_vertex1, triangle_vertex2],
-        &glium::index::PrimitiveType::TriangleStrip,
-        &vec![0, 1, 2u16],
-        // &program_polyhedron,
-        default_programs.polyhedron(),
-    );
-
-    // The positions of each vertex of the square
-    let square_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
-    let square_vertex1 = Vertex::new([ 1.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
-    let square_vertex2 = Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]);
-    let square_vertex3 = Vertex::new([ 1.0,  1.0, 0.0], [0.0, 0.0, 1.0]);
-    let square = Model::new(
-        &display,
-        &vec![square_vertex0, square_vertex1, square_vertex2, square_vertex3],
-        &glium::index::PrimitiveType::TriangleStrip,
-        &vec![0, 2, 1, 3u16],
-        default_programs.polyhedron(),
-    );
-
-    let tetrahedron = Model::new(
-        &display,
-        &vec![
-            Vertex::new([-1.0,  0.0, -sr_1_2],[-1.0,  0.0, -sr_1_2]),
-            Vertex::new([ 1.0,  0.0, -sr_1_2],[ 1.0,  0.0, -sr_1_2]),
-            Vertex::new([ 0.0, -1.0,  sr_1_2],[ 0.0, -1.0,  sr_1_2]),
-            Vertex::new([ 0.0,  1.0,  sr_1_2],[ 0.0,  1.0,  sr_1_2]),
-        ],
-        &glium::index::PrimitiveType::TriangleStrip,
-        &vec![0, 1, 3, 2, 0, 1u16],
-        default_programs.polyhedron(),
-    );
-
-    // A cube (will likely get weird rounded edges because of normal interpolation.
-    // Different vertices should be used for different faces at each corner. (not needed since atoms are spheres.)
-    // n.b. uses TrianglesList not TriangleStrip, because triangle strips don't do corners.
-    let cube = Model::new(
-        &display,
-        &vec![
-            Vertex::new([-1.0, -1.0, -1.0],[-1.0, -1.0, -1.0]),
-            Vertex::new([ 1.0, -1.0, -1.0],[ 1.0, -1.0, -1.0]),
-            Vertex::new([-1.0,  1.0, -1.0],[-1.0,  1.0, -1.0]),
-            Vertex::new([ 1.0,  1.0, -1.0],[ 1.0,  1.0, -1.0]),
-            Vertex::new([-1.0, -1.0,  1.0],[-1.0, -1.0,  1.0]),
-            Vertex::new([ 1.0, -1.0,  1.0],[ 1.0, -1.0,  1.0]),
-            Vertex::new([-1.0,  1.0,  1.0],[-1.0,  1.0,  1.0]),
-            Vertex::new([ 1.0,  1.0,  1.0],[ 1.0,  1.0,  1.0])
-        ],
-        &glium::index::PrimitiveType::TrianglesList,
-        &vec![
-            0, 2, 1, 3, 1, 2,   // the -z face
-            2, 6, 3, 7, 3, 6,   // the  y face
-            4, 5, 6, 7, 6, 5,   // the  z face
-            0, 1, 4, 5, 4, 1,   // the -y face
-            1, 3, 5, 7, 5, 3,   // the  x face
-            0, 4, 2, 6, 2, 4u16 // the -x face
-        ],
-        default_programs.polyhedron(),
-    );
-
-    // An icosahedron
-    let phi = 2.0/(1.0+5.0f32.sqrt());
-    let icosahedron = Model::new(
-        &display,
-        &vec![
-            Vertex::new([ 0.0,  1.0,  phi],[ 0.0,  1.0,  phi]),
-            Vertex::new([ 0.0, -1.0,  phi],[ 0.0, -1.0,  phi]),
-            Vertex::new([ 0.0,  1.0, -phi],[ 0.0,  1.0, -phi]),
-            Vertex::new([ 0.0, -1.0, -phi],[ 0.0, -1.0, -phi]),
-            Vertex::new([ phi,  0.0,  1.0],[ phi,  0.0,  1.0]),
-            Vertex::new([ phi,  0.0, -1.0],[ phi,  0.0, -1.0]),
-            Vertex::new([-phi,  0.0,  1.0],[-phi,  0.0,  1.0]),
-            Vertex::new([-phi,  0.0, -1.0],[-phi,  0.0, -1.0]),
-            Vertex::new([ 1.0,  phi,  0.0],[ 1.0,  phi,  0.0]),
-            Vertex::new([-1.0,  phi,  0.0],[-1.0,  phi,  0.0]),
-            Vertex::new([ 1.0, -phi,  0.0],[ 1.0, -phi,  0.0]),
-            Vertex::new([-1.0, -phi,  0.0],[-1.0, -phi,  0.0]),
-        ],
-        &glium::index::PrimitiveType::TrianglesList,
-        &vec![
-            0, 8, 2,
-            0, 2, 9,
-            1, 3, 10,
-            1, 11, 3,
-            4, 0, 6,
-            4, 6, 1,
-            5, 7, 2,
-            5, 3, 7,
-            8, 4, 10,
-            8, 10, 5,
-            9, 11, 6,
-            9, 7, 11,
-            0, 4, 8,
-            0, 9, 6,
-            1, 10, 4,
-            1, 6, 11,
-            2, 8, 5,
-            2, 7, 9,
-            3, 5, 10,
-            3, 11, 7u16
-        ],
-        default_programs.polyhedron(),
-    );
-
-    // The positions of each vertex of the sphere
-    let sphere_vertex0 = Vertex::new([-1.0, -1.0, 0.0], [-1.0, -1.0, 0.0]);
-    let sphere_vertex1 = Vertex::new([ 1.0, -1.0, 0.0], [ 1.0, -1.0, 0.0]);
-    let sphere_vertex2 = Vertex::new([-1.0,  1.0, 0.0], [-1.0,  1.0, 0.0]);
-    let sphere_vertex3 = Vertex::new([ 1.0,  1.0, 0.0], [ 1.0,  1.0, 0.0]);
-    let sphere = Model::new(
-        &display,
-        &vec![sphere_vertex0, sphere_vertex1, sphere_vertex2, sphere_vertex3],
-        &glium::index::PrimitiveType::TriangleStrip,
-        &vec![0, 2, 1, 3u16],
-        default_programs.sphere(),
-    );
+    let default_models = model::DefaultModels::new(&display, &default_programs);
 
     // ==============================
     // Make species
     // ==============================
-    let carbon = Species::new(&sphere, &0.1, &blue);
-    let nickel = Species::new(&sphere, &0.2, &orange);
-    let sulphur = Species::new(&sphere, &0.4, &yellow);
-    let oxygen = Species::new(&sphere, &0.2, &green);
+    let carbon = Species::new(default_models.sphere(), &0.1, &blue);
+    let nickel = Species::new(default_models.sphere(), &0.2, &orange);
+    let sulphur = Species::new(default_models.sphere(), &0.4, &yellow);
+    let oxygen = Species::new(default_models.sphere(), &0.2, &green);
 
     // ==============================
     // Make molecule
