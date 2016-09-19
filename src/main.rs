@@ -8,36 +8,11 @@ mod vertex;
 mod matrix;
 mod model;
 mod program;
+mod species;
 
+use glium::{DisplayBuild, Surface};
 use matrix::Matrix;
-use model::Model;
-
-// ============================================================
-// Species
-// ============================================================
-struct Species<'a> {
-    _mesh   : &'a Model<'a>,
-    _size   : f32,
-    _colour : [f32;3],
-}
-
-impl<'a> Species<'a> {
-    fn new (
-        in_mesh   : &'a Model,
-        in_size   : &f32,
-        in_colour : &[f32;3],
-    ) -> Species<'a> {
-        Species {
-            _mesh   : in_mesh,
-            _size   : in_size.to_owned(),
-            _colour : in_colour.to_owned()
-        }
-    }
-
-    fn mesh(&self) -> &Model {&self._mesh}
-    fn size(&self) -> &f32  {&self._size}
-    fn colour(&self) -> &[f32;3] {&self._colour}
-}
+use species::Species;
 
 // ============================================================
 // Atom
@@ -368,63 +343,44 @@ fn main() {
     // ==============================
     // Make display
     // ==============================
-    use glium::{DisplayBuild, Surface};
     let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::WindowBuilder::new()
         .with_title("Furnace: Molecular Visualisation".to_string())
         .build_glium().unwrap();
 
     // ==============================
-    // Dark2
-    // ==============================
-
-    let turquoise = [ 27.0/255.0,158.0/255.0,119.0/255.0];
-    let orange    = [217.0/255.0, 95.0/255.0,  2.0/255.0];
-    let blue      = [117.0/255.0,112.0/255.0,179.0/255.0];
-    let pink      = [231.0/255.0, 41.0/255.0,138.0/255.0];
-    let green     = [102.0/255.0,166.0/255.0, 30.0/255.0];
-    let yellow    = [230.0/255.0,171.0/255.0,  2.0/255.0];
-    let brown     = [166.0/255.0,118.0/255.0, 29.0/255.0];
-    let grey      = [102.0/255.0,102.0/255.0,102.0/255.0];
-
-    // ==============================
     // Make shaders
     // ==============================
-
     let default_programs = program::DefaultPrograms::new(&display);
 
     // ==============================
     // Make models
     // ==============================
-
     let default_models = model::DefaultModels::new(&display, &default_programs);
 
     // ==============================
     // Make species
     // ==============================
-    let carbon = Species::new(default_models.sphere(), &0.1, &blue);
-    let nickel = Species::new(default_models.sphere(), &0.2, &orange);
-    let sulphur = Species::new(default_models.sphere(), &0.4, &yellow);
-    let oxygen = Species::new(default_models.sphere(), &0.2, &green);
+    let default_species = species::DefaultSpecies::new(&default_models);
 
     // ==============================
     // Make molecule
     // ==============================
     let mut molecule = Molecule::new();
-    molecule.add_atom(&sulphur, &[ 0.0,  0.0, 0.0]);
-    molecule.add_atom(&oxygen, &[ 0.5,  0.5,  0.5]);
-    molecule.add_atom(&oxygen, &[ 0.5, -0.5,  0.5]);
-    molecule.add_atom(&oxygen, &[-0.5,  0.5,  0.5]);
-    molecule.add_atom(&nickel, &[-0.5, -0.5,  0.5]);
-    molecule.add_atom(&nickel, &[ 0.5,  0.5, -0.5]);
-    molecule.add_atom(&nickel, &[ 0.5, -0.5, -0.5]);
-    molecule.add_atom(&nickel, &[-0.5,  0.5, -0.5]);
-    molecule.add_atom(&nickel, &[-0.5, -0.5, -0.5]);
-    molecule.add_atom(&carbon, &[ 0.5,  0.0,  0.0]);
-    molecule.add_atom(&carbon, &[-0.5,  0.0,  0.0]);
-    molecule.add_atom(&carbon, &[ 0.0,  0.5,  0.0]);
-    molecule.add_atom(&carbon, &[ 0.0, -0.5,  0.0]);
-    molecule.add_atom(&carbon, &[ 0.0,  0.0,  0.5]);
-    molecule.add_atom(&carbon, &[ 0.0,  0.0, -0.5]);
+    molecule.add_atom(default_species.sulphur(), &[ 0.0,  0.0, 0.0]);
+    molecule.add_atom(default_species.oxygen(), &[ 0.5,  0.5,  0.5]);
+    molecule.add_atom(default_species.oxygen(), &[ 0.5, -0.5,  0.5]);
+    molecule.add_atom(default_species.oxygen(), &[-0.5,  0.5,  0.5]);
+    molecule.add_atom(default_species.nickel(), &[-0.5, -0.5,  0.5]);
+    molecule.add_atom(default_species.nickel(), &[ 0.5,  0.5, -0.5]);
+    molecule.add_atom(default_species.nickel(), &[ 0.5, -0.5, -0.5]);
+    molecule.add_atom(default_species.nickel(), &[-0.5,  0.5, -0.5]);
+    molecule.add_atom(default_species.nickel(), &[-0.5, -0.5, -0.5]);
+    molecule.add_atom(default_species.carbon(), &[ 0.5,  0.0,  0.0]);
+    molecule.add_atom(default_species.carbon(), &[-0.5,  0.0,  0.0]);
+    molecule.add_atom(default_species.carbon(), &[ 0.0,  0.5,  0.0]);
+    molecule.add_atom(default_species.carbon(), &[ 0.0, -0.5,  0.0]);
+    molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0,  0.5]);
+    molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0, -0.5]);
 
     // ==============================
     // Make camera
