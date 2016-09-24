@@ -14,7 +14,7 @@ mod camera;
 use glium::{DisplayBuild, Surface};
 use molecule::Molecule;
 use camera::Camera;
-
+use std::io::{self, Write};
 // ============================================================
 // Main Program
 // ============================================================
@@ -102,7 +102,7 @@ fn main() {
         backface_culling : glium::BackfaceCullingMode::CullCounterClockwise,
         .. Default::default()
     };
-    
+
     let light_position = [2.0,0.0,0.0,1.0f32];
 
     let mut fxaa_enabled = true;
@@ -145,7 +145,7 @@ fn main() {
                 glium::glutin::Event::Resized(x, y) => {
 		    camera.set_screen_size(&x, &y);
 		},
-                
+
                 // ==============================
                 // Key is pressed
                 // ==============================
@@ -155,7 +155,7 @@ fn main() {
                     Some(key)
                 ) => match key {
 		    glium::glutin::VirtualKeyCode::Escape => return,
-		    glium::glutin::VirtualKeyCode::Space => {
+		    glium::glutin::VirtualKeyCode::Return => {
                         fxaa_enabled = !fxaa_enabled;
                         println! (
 		            "FXAA is now {}",
@@ -203,6 +203,34 @@ fn main() {
                         );
                         println! ("Resetting camera");
                     },
+            glium::glutin::VirtualKeyCode::Space => {
+                println! ("Entering Edit Mode - Press Esc to Return");
+                'editmode: loop {
+                    for ev2 in display.poll_events() {
+                        match ev2 {
+                            glium::glutin::Event::KeyboardInput (
+                                glium::glutin::ElementState::Pressed,
+                                _,
+                                Some(key)
+                            ) => match key {
+                            // ==============================
+                            // Window is modified
+                            // ==============================
+                            glium::glutin::VirtualKeyCode::Escape => {
+                                println!(" ");
+                                println!("Returning...");
+                                break 'editmode;
+                            },
+                            _ =>  {
+                                    print!("bla");
+                                    io::stdout().flush().unwrap();
+                            },
+                        },
+                        _ => {},
+                        }
+                    }
+                }
+            },
 		    _ => {},
                 },
 
