@@ -24,7 +24,7 @@ fn main() {
     // Make display
     // ==============================
     let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::WindowBuilder::new()
-        .with_title("Furnace: Molecular Visualisation".to_string())
+        .with_title("Oxide:Serious Viz-ness".to_string())
         .build_glium().unwrap();
 
     // ==============================
@@ -102,7 +102,7 @@ fn main() {
         backface_culling : glium::BackfaceCullingMode::CullCounterClockwise,
         .. Default::default()
     };
-    
+
     let light_position = [2.0,0.0,0.0,1.0f32];
 
     let mut fxaa_enabled = true;
@@ -145,7 +145,7 @@ fn main() {
                 glium::glutin::Event::Resized(x, y) => {
 		    camera.set_screen_size(&x, &y);
 		},
-                
+
                 // ==============================
                 // Key is pressed
                 // ==============================
