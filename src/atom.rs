@@ -40,31 +40,11 @@ impl<'a> Atom<'a> {
             [0.0, 0.0, *self._species.size(), self._position[2]],
             [0.0, 0.0, 0.0                  , 1.0              ]
         ]);
+        
+        let mut quaternion = in_camera.quaternion().to_owned();
+        quaternion.invert();
+        let rotation_matrix = quaternion.rotation_matrix();
 
-        let orbital_matrix = Matrix::new ([
-            [*in_camera.cos_theta(), 0.0, -*in_camera.sin_theta(), 0.0],
-            [0.0                   , 1.0,  0.0                   , 0.0],
-            [*in_camera.sin_theta(), 0.0,  *in_camera.cos_theta(), 0.0],
-            [0.0                   , 0.0,  0.0                   , 1.0]
-        ]);
-
-        let azimuthal_matrix = Matrix::new ([
-            [1.0, 0.0                 ,  0.0                 , 0.0],
-            [0.0, *in_camera.cos_phi(), -*in_camera.sin_phi(), 0.0],
-            [0.0, *in_camera.sin_phi(),  *in_camera.cos_phi(), 0.0],
-            [0.0, 0.0                 ,  0.0                 , 1.0]
-        ]);
-
-	let spin_matrix = Matrix::new ([
-	    [*in_camera.cos_psi(), -*in_camera.sin_psi(), 0.0, 0.0],
-	    [*in_camera.sin_psi(),  *in_camera.cos_psi(), 0.0, 0.0],
-	    [0.0                 ,  0.0                 , 1.0, 0.0],
-	    [0.0                 ,  0.0                 , 0.0, 1.0]
-	]);
-
-        self._model_matrix = translation_and_scaling_matrix
-	                   * orbital_matrix
-			   * azimuthal_matrix
-			   * spin_matrix;
+        self._model_matrix = translation_and_scaling_matrix * rotation_matrix;
     }
 }
