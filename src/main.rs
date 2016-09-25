@@ -24,7 +24,7 @@ fn main() {
     // Make display
     // ==============================
     let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::WindowBuilder::new()
-        .with_title("Oxide:Serious Viz-ness".to_string())
+        .with_title("Oxide: Serious Viz-ness".to_string())
         .build_glium().unwrap();
 
     // ==============================
