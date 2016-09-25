@@ -1,17 +1,29 @@
-# rust-dev
-CDTCMMS2 Rust Project 
+# Oxide
+CDTCMMS2 Rust Project
 
-Step 1: Learn Rust - http://rustbyexample.com/
-                   - https://doc.rust-lang.org/book/
-                   
-Step 2: Decide what to make! (It's probs a visualisation tool, using the Glium OpenGL wrapper).
+Step 1: Learn Rust * http://rustbyexample.com/
+                   * https://doc.rust-lang.org/book/
 
-Steps to making a visualiser:
+Step 2: Make a sick molecular visualiser.
 
-1) Write the OpenGL to render a sphere.
-2) Write the Rust to load in a file and get (for now) the (x,y,z) coordinates.
-3) Render a sphere at each one of those coordinates.
-4) Iterate and improve
+## High-level overview
+
+Currently we have something that displays a specific molecule, with broken rotations.
+
+The molecule (the thing being viewed) is created using the molecule module.
+Atoms are then added to build up the structure.
+
+The camera is then set up (with anti-aliasing), and the main loop entered in which the viewer continously checks for input.
+
+###What we want (not fixed, not prioritised):
+
+* The ability to load in a given structure from a file
+* Proper handling of rotations and perspective using quaternions
+* Ability to manipulate the bonds and the representation of the molecule
+* Supercell/Projection Analysis/Polyhedra for analysing what the structure looks like
+* A GUI for doing all the above
+* Output of images of the structure
+
 
 ### Personal to-dos
 
@@ -26,5 +38,3 @@ Steps to making a visualiser:
 #### mle
 
 * Write interface with some crystal file formats to plot shapes at the right coordinates
-
-
