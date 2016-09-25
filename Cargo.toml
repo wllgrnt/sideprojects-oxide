@@ -1,9 +1,10 @@
 [package]
-name = "furnace"
+name = "oxide"
 version = "0.1.0"
 authors = ["MarkJ <mj464@cam.ac.uk>",
            "MatthewE <me388@cam.ac.uk>",
-           "WillG <wpg23@cam.ac.uk>"
+           "WillG <wpg23@cam.ac.uk>",
+           "LiamP <ltp26@cam.ac.uk>"
            ]
 
 [dependencies]
