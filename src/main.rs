@@ -69,6 +69,7 @@ fn main() {
     // Make lights
     // ==============================
     let light = Light::new(&[2.0,0.0,0.0],&1.0);
+    let mut light_toggle = true;
 
     // ==============================
     // Make camera
@@ -120,7 +121,11 @@ fn main() {
     // Run everything
     // ==============================
     loop {
-        let light_position = *camera.view_matrix() * *light.position();
+        let light_position = if light_toggle {
+            *camera.view_matrix() * *light.position()
+        } else {
+            light.position().to_owned()
+        };
 
         molecule.rotate_atoms_against_camera(&camera);
 
@@ -170,10 +175,7 @@ fn main() {
                     glium::glutin::VirtualKeyCode::Escape => return,
                     glium::glutin::VirtualKeyCode::Space => {
                         fxaa_enabled = !fxaa_enabled;
-                        println! (
-                            "FXAA is now {}",
-                            if fxaa_enabled { "on" } else { "off" }
-                        );
+                        println!("FXAA is now {}", if fxaa_enabled { "on" } else { "off" });
                     },
                     glium::glutin::VirtualKeyCode::Up => {
                         camera.zoom_in();
@@ -216,6 +218,10 @@ fn main() {
                         );
                         println! ("Resetting camera");
                     },
+                    glium::glutin::VirtualKeyCode::T => {
+                        light_toggle = !light_toggle;
+                        println!("light_toggle is now {}", if light_toggle { "on" } else { "off" });
+                    }
                     _ => {},
                 },
 
