@@ -72,10 +72,25 @@ impl Camera {
         in_psi_degrees   : &f32,
         in_r             : &f32
     ) {
-        let theta_radians = in_theta_degrees*f32::consts::PI/180.0;
-        let phi_radians = in_phi_degrees*f32::consts::PI/180.0;
-        let psi_radians = in_psi_degrees*f32::consts::PI/180.0;
-        // TODO: turn these into _quaternion
+        let half_theta_radians = in_theta_degrees*f32::consts::PI/360.0;
+        let half_phi_radians = in_phi_degrees*f32::consts::PI/360.0;
+        let half_psi_radians = in_psi_degrees*f32::consts::PI/360.0;
+        self._quaternion = Quaternion::new(
+            &half_psi_radians.cos(),
+            &0.0,
+            &0.0,
+            &half_psi_radians.sin(),
+        ) * Quaternion::new(
+            &half_theta_radians.cos(),
+            &half_theta_radians.sin(),
+            &0.0,
+            &0.0,
+        ) * Quaternion::new(
+            &half_phi_radians.cos(),
+            &0.0,
+            &half_phi_radians.sin(),
+            &0.0,
+        );
         
         self._r = in_r.to_owned();
         self.update();

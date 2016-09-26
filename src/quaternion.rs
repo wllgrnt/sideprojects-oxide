@@ -33,13 +33,6 @@ impl Quaternion {
     pub fn k(&self) -> &f32 {&self._contents[3]}
 
     pub fn rotation_matrix (&self) -> Matrix {
-        let cos_2_theta = self.r();
-        let c = ((1.0+cos_2_theta)/2.0).sqrt();
-        let s = ((1.0-cos_2_theta)/2.0).sqrt();
-        let sin_half_theta = ((1.0-c)/2.0).sqrt();
-        let x = self.i()/sin_half_theta;
-        let y = self.j()/sin_half_theta;
-        let z = self.k()/sin_half_theta;
         let r = self.r();
         let i = self.i();
         let j = self.j();
@@ -69,6 +62,7 @@ impl Quaternion {
         }
     }
 
+    #[allow(dead_code)]
     pub fn right_multiply(&mut self, in_other : &Quaternion) {
         let sr : f32 = self.r().to_owned();
         let si : f32 = self.i().to_owned();
@@ -85,7 +79,8 @@ impl Quaternion {
             sr*ok+sk*or+si*oj-sj*oi,
         ];
     }
-
+    
+    #[allow(dead_code)]
     pub fn left_multiply(&mut self, in_other : &Quaternion) {
         let sr : f32 = self.r().to_owned();
         let si : f32 = self.i().to_owned();
@@ -123,22 +118,3 @@ impl Mul<Quaternion> for Quaternion {
         )
     }
 }
-
-/*impl MulAssign<Quaternion> for Quaternion {
-    fn mul_assign(&mut self, in_other : Quaternion) {
-        let sr : f32 = self.r().to_owned();
-        let si : f32 = self.i().to_owned();
-        let sj : f32 = self.j().to_owned();
-        let sk : f32 = self.k().to_owned();
-        let or : f32 = in_other.r().to_owned();
-        let oi : f32 = in_other.i().to_owned();
-        let oj : f32 = in_other.j().to_owned();
-        let ok : f32 = in_other.k().to_owned();
-        self._contents = [
-            sr*or-si*oi-sj*oj-sk*ok,
-            sr*oi+si*or+sj*ok-sk*oj,
-            sr*oj+sj*or+si*ok-si*ok,
-            sr*ok+sk*or+sk*oi-si*ok,
-        ]
-    }
-}*/
