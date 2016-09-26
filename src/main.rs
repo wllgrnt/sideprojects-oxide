@@ -10,10 +10,12 @@ mod program;
 mod species;
 mod atom;
 mod molecule;
+mod light;
 mod camera;
 
 use glium::{DisplayBuild, Surface};
 use molecule::Molecule;
+use light::Light;
 use camera::Camera;
 
 // ============================================================
@@ -24,12 +26,12 @@ fn main() {
     // ==============================
     // Make display
     // ==============================
-    let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::WindowBuilder::new()
+    let display = glium::glutin::WindowBuilder::new()
         .with_title("Oxide: Serious Viz-ness".to_string())
         .build_glium().unwrap();
 
     // ==============================
-    // Make shaders
+    // Make programs
     // ==============================
     let default_programs = program::DefaultPrograms::new(&display);
 
@@ -64,6 +66,11 @@ fn main() {
     molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0, -0.5]);
 
     // ==============================
+    // Make lights
+    // ==============================
+    let light = Light::new(&[2.0,0.0,0.0],&1.0);
+
+    // ==============================
     // Make camera
     // ==============================
     // camera focus (the point the camera is pointing at)
@@ -81,19 +88,18 @@ fn main() {
     let mut camera = Camera::new (
         &display,
         &camera_focus,
-	&camera_theta_degrees,
-	&camera_phi_degrees,
-	&camera_psi_degrees,
-	&camera_r,
+	    &camera_theta_degrees,
+	    &camera_phi_degrees,
+	    &camera_psi_degrees,
+	    &camera_r,
         &camera_field_of_view_degrees,
         &camera_near_plane,
         &camera_far_plane
     );
 
     // ==============================
-    // Run everything
+    // Define draw parameters
     // ==============================
-
     let params = glium::DrawParameters {
         depth: glium::Depth {
             test: glium::DepthTest::IfLess,
@@ -104,12 +110,17 @@ fn main() {
         .. Default::default()
     };
 
-    let light_position = [2.0,0.0,0.0,1.0f32];
-
+    // ==============================
+    // set up antialiasing
+    // ==============================
     let mut fxaa_enabled = true;
     let fxaa = fxaa::FxaaSystem::new(&display);
+
+    // ==============================
+    // Run everything
+    // ==============================
     loop {
-        let light_position = *camera.view_matrix() * light_position;
+        let light_position = *camera.view_matrix() * *light.position();
 
         molecule.rotate_atoms_against_camera(&camera);
 
@@ -144,8 +155,8 @@ fn main() {
                 // ==============================
                 glium::glutin::Event::Closed => return,
                 glium::glutin::Event::Resized(x, y) => {
-		    camera.set_screen_size(&x, &y);
-		},
+                    camera.set_screen_size(&x, &y);
+                },
 
                 // ==============================
                 // Key is pressed
@@ -155,46 +166,46 @@ fn main() {
                     _,
                     Some(key)
                 ) => match key {
-		    glium::glutin::VirtualKeyCode::Escape => return,
-		    glium::glutin::VirtualKeyCode::Space => {
+                    glium::glutin::VirtualKeyCode::Escape => return,
+                    glium::glutin::VirtualKeyCode::Space => {
                         fxaa_enabled = !fxaa_enabled;
                         println! (
-		            "FXAA is now {}",
-		            if fxaa_enabled { "on" } else { "off" }
-		        );
-	            },
-		    glium::glutin::VirtualKeyCode::Up => {
-		        camera.zoom_in();
-			println! ("Zooming in");
-		    },
-		    glium::glutin::VirtualKeyCode::Down => {
-		        camera.zoom_out();
-			println!("Zooming out");
-		    },
-		    glium::glutin::VirtualKeyCode::Right => {
-		        camera.spin_clockwise();
-			println! ("Spinning clockwise");
-		    },
-		    glium::glutin::VirtualKeyCode::Left => {
-		        camera.spin_anticlockwise();
-			println! ("Spinning anticlockwise");
-		    },
-		    glium::glutin::VirtualKeyCode::K => {
-		        camera.azimuth_up();
-			println! ("Azimuthing up");
-		    },
-		    glium::glutin::VirtualKeyCode::J => {
-		        camera.azimuth_down();
-			println! ("Azimuthing down");
-		    },
-		    glium::glutin::VirtualKeyCode::H => {
-		        camera.orbit_left();
-			println! ("Orbiting left");
-		    },
-		    glium::glutin::VirtualKeyCode::L => {
-		        camera.orbit_right();
-			println! ("Orbiting right");
-		    },
+                            "FXAA is now {}",
+                            if fxaa_enabled { "on" } else { "off" }
+                        );
+                    },
+                    glium::glutin::VirtualKeyCode::Up => {
+                        camera.zoom_in();
+                        println! ("Zooming in");
+                    },
+                    glium::glutin::VirtualKeyCode::Down => {
+                        camera.zoom_out();
+                        println!("Zooming out");
+                    },
+                    glium::glutin::VirtualKeyCode::Right => {
+                        camera.spin_clockwise();
+                        println! ("Spinning clockwise");
+                    },
+                    glium::glutin::VirtualKeyCode::Left => {
+                        camera.spin_anticlockwise();
+                        println! ("Spinning anticlockwise");
+                    },
+                    glium::glutin::VirtualKeyCode::K => {
+                        camera.azimuth_up();
+                        println! ("Azimuthing up");
+                    },
+                    glium::glutin::VirtualKeyCode::J => {
+                        camera.azimuth_down();
+                        println! ("Azimuthing down");
+                    },
+                    glium::glutin::VirtualKeyCode::H => {
+                        camera.orbit_left();
+                        println! ("Orbiting left");
+                    },
+                    glium::glutin::VirtualKeyCode::L => {
+                        camera.orbit_right();
+                        println! ("Orbiting right");
+                    },
                     glium::glutin::VirtualKeyCode::R => {
                         camera.set_angles (
                             &camera_theta_degrees,
@@ -204,7 +215,7 @@ fn main() {
                         );
                         println! ("Resetting camera");
                     },
-		    _ => {},
+                    _ => {},
                 },
 
                 // ==============================

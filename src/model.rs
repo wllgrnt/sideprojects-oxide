@@ -69,9 +69,9 @@ impl<'a> DefaultModels<'a> {
             _triangle : Model::new(
                 in_display,
                 &vec! [
-                    Vertex::new([-1.0, -1.0, 0.0], [0.0, 0.0, 1.0]),
-                    Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]),
-                    Vertex::new([ 1.0,  0.0, 0.0], [0.0, 0.0, 1.0]),
+                    Vertex::new(&[-1.0, -1.0, 0.0], &[0.0, 0.0, 1.0]),
+                    Vertex::new(&[-1.0,  1.0, 0.0], &[0.0, 0.0, 1.0]),
+                    Vertex::new(&[ 1.0,  0.0, 0.0], &[0.0, 0.0, 1.0]),
                 ],
                 &glium::index::PrimitiveType::TriangleStrip,
                 &vec![0, 1, 2u16],
@@ -84,10 +84,10 @@ impl<'a> DefaultModels<'a> {
             _square : Model::new(
                 in_display,
                 &vec! [
-                    Vertex::new([-1.0, -1.0, 0.0], [0.0, 0.0, 1.0]),
-                    Vertex::new([ 1.0, -1.0, 0.0], [0.0, 0.0, 1.0]),
-                    Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]),
-                    Vertex::new([ 1.0,  1.0, 0.0], [0.0, 0.0, 1.0]),
+                    Vertex::new(&[-1.0, -1.0, 0.0], &[0.0, 0.0, 1.0]),
+                    Vertex::new(&[ 1.0, -1.0, 0.0], &[0.0, 0.0, 1.0]),
+                    Vertex::new(&[-1.0,  1.0, 0.0], &[0.0, 0.0, 1.0]),
+                    Vertex::new(&[ 1.0,  1.0, 0.0], &[0.0, 0.0, 1.0]),
                 ],
                 &glium::index::PrimitiveType::TriangleStrip,
                 &vec![0, 2, 1, 3u16],
@@ -100,10 +100,10 @@ impl<'a> DefaultModels<'a> {
             _tetrahedron : Model::new(
                 in_display,
                 &vec![
-                    Vertex::new([-1.0,  0.0, -sr_1_2],[-1.0,  0.0, -sr_1_2]),
-                    Vertex::new([ 1.0,  0.0, -sr_1_2],[ 1.0,  0.0, -sr_1_2]),
-                    Vertex::new([ 0.0, -1.0,  sr_1_2],[ 0.0, -1.0,  sr_1_2]),
-                    Vertex::new([ 0.0,  1.0,  sr_1_2],[ 0.0,  1.0,  sr_1_2]),
+                    Vertex::new(&[-1.0,  0.0, -sr_1_2],&[-1.0,  0.0, -sr_1_2]),
+                    Vertex::new(&[ 1.0,  0.0, -sr_1_2],&[ 1.0,  0.0, -sr_1_2]),
+                    Vertex::new(&[ 0.0, -1.0,  sr_1_2],&[ 0.0, -1.0,  sr_1_2]),
+                    Vertex::new(&[ 0.0,  1.0,  sr_1_2],&[ 0.0,  1.0,  sr_1_2]),
                 ],
                 &glium::index::PrimitiveType::TriangleStrip,
                 &vec![0, 1, 3, 2, 0, 1u16],
@@ -119,14 +119,14 @@ impl<'a> DefaultModels<'a> {
             _cube : Model::new(
                 in_display,
                 &vec![
-                    Vertex::new([-1.0, -1.0, -1.0],[-1.0, -1.0, -1.0]),
-                    Vertex::new([ 1.0, -1.0, -1.0],[ 1.0, -1.0, -1.0]),
-                    Vertex::new([-1.0,  1.0, -1.0],[-1.0,  1.0, -1.0]),
-                    Vertex::new([ 1.0,  1.0, -1.0],[ 1.0,  1.0, -1.0]),
-                    Vertex::new([-1.0, -1.0,  1.0],[-1.0, -1.0,  1.0]),
-                    Vertex::new([ 1.0, -1.0,  1.0],[ 1.0, -1.0,  1.0]),
-                    Vertex::new([-1.0,  1.0,  1.0],[-1.0,  1.0,  1.0]),
-                    Vertex::new([ 1.0,  1.0,  1.0],[ 1.0,  1.0,  1.0])
+                    Vertex::new(&[-1.0, -1.0, -1.0],&[-1.0, -1.0, -1.0]),
+                    Vertex::new(&[ 1.0, -1.0, -1.0],&[ 1.0, -1.0, -1.0]),
+                    Vertex::new(&[-1.0,  1.0, -1.0],&[-1.0,  1.0, -1.0]),
+                    Vertex::new(&[ 1.0,  1.0, -1.0],&[ 1.0,  1.0, -1.0]),
+                    Vertex::new(&[-1.0, -1.0,  1.0],&[-1.0, -1.0,  1.0]),
+                    Vertex::new(&[ 1.0, -1.0,  1.0],&[ 1.0, -1.0,  1.0]),
+                    Vertex::new(&[-1.0,  1.0,  1.0],&[-1.0,  1.0,  1.0]),
+                    Vertex::new(&[ 1.0,  1.0,  1.0],&[ 1.0,  1.0,  1.0])
                 ],
                 &glium::index::PrimitiveType::TrianglesList,
                 &vec![
@@ -146,18 +146,18 @@ impl<'a> DefaultModels<'a> {
             _icosahedron : Model::new(
                 in_display,
                 &vec![
-                    Vertex::new([ 0.0,  1.0,  phi],[ 0.0,  1.0,  phi]),
-                    Vertex::new([ 0.0, -1.0,  phi],[ 0.0, -1.0,  phi]),
-                    Vertex::new([ 0.0,  1.0, -phi],[ 0.0,  1.0, -phi]),
-                    Vertex::new([ 0.0, -1.0, -phi],[ 0.0, -1.0, -phi]),
-                    Vertex::new([ phi,  0.0,  1.0],[ phi,  0.0,  1.0]),
-                    Vertex::new([ phi,  0.0, -1.0],[ phi,  0.0, -1.0]),
-                    Vertex::new([-phi,  0.0,  1.0],[-phi,  0.0,  1.0]),
-                    Vertex::new([-phi,  0.0, -1.0],[-phi,  0.0, -1.0]),
-                    Vertex::new([ 1.0,  phi,  0.0],[ 1.0,  phi,  0.0]),
-                    Vertex::new([-1.0,  phi,  0.0],[-1.0,  phi,  0.0]),
-                    Vertex::new([ 1.0, -phi,  0.0],[ 1.0, -phi,  0.0]),
-                    Vertex::new([-1.0, -phi,  0.0],[-1.0, -phi,  0.0]),
+                    Vertex::new(&[ 0.0,  1.0,  phi],&[ 0.0,  1.0,  phi]),
+                    Vertex::new(&[ 0.0, -1.0,  phi],&[ 0.0, -1.0,  phi]),
+                    Vertex::new(&[ 0.0,  1.0, -phi],&[ 0.0,  1.0, -phi]),
+                    Vertex::new(&[ 0.0, -1.0, -phi],&[ 0.0, -1.0, -phi]),
+                    Vertex::new(&[ phi,  0.0,  1.0],&[ phi,  0.0,  1.0]),
+                    Vertex::new(&[ phi,  0.0, -1.0],&[ phi,  0.0, -1.0]),
+                    Vertex::new(&[-phi,  0.0,  1.0],&[-phi,  0.0,  1.0]),
+                    Vertex::new(&[-phi,  0.0, -1.0],&[-phi,  0.0, -1.0]),
+                    Vertex::new(&[ 1.0,  phi,  0.0],&[ 1.0,  phi,  0.0]),
+                    Vertex::new(&[-1.0,  phi,  0.0],&[-1.0,  phi,  0.0]),
+                    Vertex::new(&[ 1.0, -phi,  0.0],&[ 1.0, -phi,  0.0]),
+                    Vertex::new(&[-1.0, -phi,  0.0],&[-1.0, -phi,  0.0]),
                 ],
                 &glium::index::PrimitiveType::TrianglesList,
                 &vec![
@@ -191,10 +191,10 @@ impl<'a> DefaultModels<'a> {
             _sphere : Model::new(
                 in_display,
                 &vec! [
-                    Vertex::new([-1.0, -1.0, 0.0], [-1.0, -1.0, 0.0]),
-                    Vertex::new([ 1.0, -1.0, 0.0], [ 1.0, -1.0, 0.0]),
-                    Vertex::new([-1.0,  1.0, 0.0], [-1.0,  1.0, 0.0]),
-                    Vertex::new([ 1.0,  1.0, 0.0], [ 1.0,  1.0, 0.0]),
+                    Vertex::new(&[-1.0, -1.0, 0.0], &[-1.0, -1.0, 0.0]),
+                    Vertex::new(&[ 1.0, -1.0, 0.0], &[ 1.0, -1.0, 0.0]),
+                    Vertex::new(&[-1.0,  1.0, 0.0], &[-1.0,  1.0, 0.0]),
+                    Vertex::new(&[ 1.0,  1.0, 0.0], &[ 1.0,  1.0, 0.0]),
                 ],
                 &glium::index::PrimitiveType::TriangleStrip,
                 &vec![0, 2, 1, 3u16],
