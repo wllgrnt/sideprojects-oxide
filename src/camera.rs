@@ -38,11 +38,6 @@ impl Camera {
     ) -> Camera {
 
         let (w, h) = (*in_display).get_framebuffer_dimensions();
-        
-        let theta_radians = in_theta_degrees*f32::consts::PI/180.0;
-        let phi_radians = in_phi_degrees*f32::consts::PI/180.0;
-        let psi_radians = in_psi_degrees*f32::consts::PI/180.0;
-        // TODO: turn these into _quaternion.
 
         let angular_step_radians = f32::consts::PI/36.0;
         let half_step_radians = angular_step_radians/2.0;
@@ -62,7 +57,7 @@ impl Camera {
             _perspective_matrix : Matrix::new([[0.0;4];4]),   // dummy value
             _vp_matrix          : Matrix::new([[0.0;4];4]),   // dummy value
         };
-        camera.update();
+        camera.set_angles(in_theta_degrees, in_phi_degrees, in_psi_degrees, in_r);
         camera
     }
     
@@ -89,62 +84,63 @@ impl Camera {
     pub fn zoom_in (&mut self) {if self._r > self._r_step {self._r -= self._r_step} self.update();}
     pub fn zoom_out (&mut self) {self._r += self._r_step; self.update();}
     pub fn spin_clockwise (&mut self) {
-        self._quaternion *= Quaternion::new(
+        self._quaternion.left_multiply(&Quaternion::new(
             &self._cos_half_step,
             &0.0,
             &0.0,
             &-self._sin_half_step
-        );
+        ));
 	    self.update();
     }
     pub fn spin_anticlockwise (&mut self) {
-        self._quaternion *= Quaternion::new(
+        self._quaternion.left_multiply(&Quaternion::new(
             &self._cos_half_step,
             &0.0,
             &0.0,
             &self._sin_half_step
-        );
+        ));
 	self.update();
     }
     pub fn azimuth_up (&mut self) {
-        self._quaternion *= Quaternion::new(
+        self._quaternion.left_multiply(&Quaternion::new(
             &self._cos_half_step,
             &self._sin_half_step,
             &0.0,
             &0.0,
-        );
+        ));
         self.update();
     }
     pub fn azimuth_down (&mut self) {
-        self._quaternion *= Quaternion::new(
+        self._quaternion.left_multiply(&Quaternion::new(
             &self._cos_half_step,
             &-self._sin_half_step,
             &0.0,
             &0.0,
-        );
+        ));
         self.update();
     }
     pub fn orbit_right (&mut self) {
-        self._quaternion *= Quaternion::new(
+        self._quaternion.left_multiply(&Quaternion::new(
             &self._cos_half_step,
             &0.0,
             &-self._sin_half_step,
             &0.0,
-        );
+        ));
         self.update();
     }
     pub fn orbit_left (&mut self) {
-        self._quaternion *= Quaternion::new(
+        self._quaternion.left_multiply(&Quaternion::new(
             &self._cos_half_step,
             &0.0,
             &self._sin_half_step,
             &0.0,
-        );
+        ));
         self.update();
     }
     
     pub fn set_screen_size(&mut self, in_x : &u32, in_y : &u32) {
         self._screen_size = [*in_x, *in_y];
+        self.update();
     }
     
     pub fn update(&mut self) {

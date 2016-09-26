@@ -1,6 +1,6 @@
 use matrix::Matrix;
 
-use std::ops::{Mul, MulAssign}; // multiplication overload
+use std::ops::Mul; // multiplication overload
 
 // ============================================================
 // Quaternions
@@ -68,6 +68,40 @@ impl Quaternion {
             *element *= -1.0;
         }
     }
+
+    pub fn right_multiply(&mut self, in_other : &Quaternion) {
+        let sr : f32 = self.r().to_owned();
+        let si : f32 = self.i().to_owned();
+        let sj : f32 = self.j().to_owned();
+        let sk : f32 = self.k().to_owned();
+        let or : f32 = in_other.r().to_owned();
+        let oi : f32 = in_other.i().to_owned();
+        let oj : f32 = in_other.j().to_owned();
+        let ok : f32 = in_other.k().to_owned();
+        self._contents = [
+            sr*or-si*oi-sj*oj-sk*ok,
+            sr*oi+si*or+sj*ok-sk*oj,
+            sr*oj+sj*or+sk*oi-si*ok,
+            sr*ok+sk*or+si*oj-sj*oi,
+        ];
+    }
+
+    pub fn left_multiply(&mut self, in_other : &Quaternion) {
+        let sr : f32 = self.r().to_owned();
+        let si : f32 = self.i().to_owned();
+        let sj : f32 = self.j().to_owned();
+        let sk : f32 = self.k().to_owned();
+        let or : f32 = in_other.r().to_owned();
+        let oi : f32 = in_other.i().to_owned();
+        let oj : f32 = in_other.j().to_owned();
+        let ok : f32 = in_other.k().to_owned();
+        self._contents = [
+            or*sr-oi*si-oj*sj-ok*sk,
+            or*si+oi*sr+oj*sk-ok*sj,
+            or*sj+oj*sr+ok*si-oi*sk,
+            or*sk+ok*sr+oi*sj-oj*si,
+        ];
+    }
 }
 
 impl Mul<Quaternion> for Quaternion {
@@ -84,13 +118,13 @@ impl Mul<Quaternion> for Quaternion {
         Quaternion::new(
             &(sr*or-si*oi-sj*oj-sk*ok),
             &(sr*oi+si*or+sj*ok-sk*oj),
-            &(sr*oj+sj*or+si*ok-si*ok),
-            &(sr*ok+sk*or+sk*oi-si*ok),
+            &(sr*oj+sj*or+sk*oi-si*ok),
+            &(sr*ok+sk*or+si*oj-sj*oi),
         )
     }
 }
 
-impl MulAssign<Quaternion> for Quaternion {
+/*impl MulAssign<Quaternion> for Quaternion {
     fn mul_assign(&mut self, in_other : Quaternion) {
         let sr : f32 = self.r().to_owned();
         let si : f32 = self.i().to_owned();
@@ -107,4 +141,4 @@ impl MulAssign<Quaternion> for Quaternion {
             sr*ok+sk*or+sk*oi-si*ok,
         ]
     }
-}
+}*/
