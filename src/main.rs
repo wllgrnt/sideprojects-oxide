@@ -131,11 +131,12 @@ fn main() {
                 let mv_matrix = *camera.view_matrix() * *atom.model_matrix();
                 let mvp_matrix = *camera.vp_matrix() * *atom.model_matrix();
                 let uniforms = uniform!{
-                mv_matrix      : mv_matrix.contents().to_owned(),
-                mvp_matrix     : mvp_matrix.contents().to_owned(),
-                colour         : atom.species().colour().to_owned(),
-                light_position : light_position,
-                size           : *atom.species().size(),
+                    mv_matrix        : mv_matrix.contents().to_owned(),
+                    mvp_matrix       : mvp_matrix.contents().to_owned(),
+                    colour           : atom.species().colour().to_owned(),
+                    light_position   : light_position,
+                    light_brightness : light.brightness().to_owned(),
+                    size             : *atom.species().size(),
                 };
                 target.draw(
                     atom.species().mesh().vertex_buffer(),

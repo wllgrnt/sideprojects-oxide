@@ -96,7 +96,8 @@ impl DefaultPrograms {
 
             uniform vec3 colour;
             uniform float size;
-            
+            uniform float light_brightness;
+
             in vec2 fragment_xy;
             in vec3 fragment_light_vector;
 
@@ -118,7 +119,7 @@ impl DefaultPrograms {
                     0,
                     1
                 );
-                vec3 colour3 = colour*(cos_light_angle/light_distance_squared+0.2);
+                vec3 colour3 = colour*(light_brightness*cos_light_angle/light_distance_squared+0.05);
                 color = vec4(colour3, 1.0);
             }
         "#;
