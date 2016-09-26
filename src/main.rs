@@ -4,6 +4,7 @@ extern crate glium;
 mod fxaa;
 mod vertex;
 mod matrix;
+mod quaternion;
 mod model;
 mod program;
 mod species;
