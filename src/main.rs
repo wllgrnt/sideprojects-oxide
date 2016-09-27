@@ -5,6 +5,7 @@ mod fxaa;
 mod vertex;
 mod matrix;
 mod quaternion;
+mod file_input;
 mod model;
 mod program;
 mod species;
@@ -15,30 +16,23 @@ mod camera;
 use glium::{DisplayBuild, Surface};
 use molecule::Molecule;
 use camera::Camera;
-
-use std::io;
-use std::io::prelude::*;
-use std::fs::File;
+use std::env;
 
 // ============================================================
 // Main Program
 // ============================================================
 /// Furnace - draw a molecule!
 fn main() {
-    // trying file io
-    let mut f = File::create("foo.txt").unwrap();
-    f.write_all(b"Hello, world!");
-
-    let mut f = File::open("foo.txt").unwrap();
-    let mut s = String::new();
-    f.read_to_string(&mut s);
-    assert_eq!(s, "Hello, world!");
+    // ==============================
+    // Read command-line arguments
+    // ==============================
+    let args : Vec<String> = env::args().collect();
 
     // ==============================
     // Make display
     // ==============================
     let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::WindowBuilder::new()
-        .with_title("Oxide: Serious Viz-ness".to_string())
+        .with_title("Oxide: Molecular Visualisation".to_string())
         .build_glium().unwrap();
 
     // ==============================
@@ -56,26 +50,35 @@ fn main() {
     // ==============================
     let default_species = species::DefaultSpecies::new(&default_models);
 
-    // ==============================
-    // Make molecule
-    // ==============================
+    // ==================================
+    // Make molecule from file or dummy 
+    // ==================================
     let mut molecule = Molecule::new();
-    molecule.add_atom(default_species.sulphur(), &[ 0.0,  0.0, 0.0]);
-    molecule.add_atom(default_species.oxygen(), &[ 0.5,  0.5,  0.5]);
-    molecule.add_atom(default_species.oxygen(), &[ 0.5, -0.5,  0.5]);
-    molecule.add_atom(default_species.oxygen(), &[-0.5,  0.5,  0.5]);
-    molecule.add_atom(default_species.nickel(), &[-0.5, -0.5,  0.5]);
-    molecule.add_atom(default_species.nickel(), &[ 0.5,  0.5, -0.5]);
-    molecule.add_atom(default_species.nickel(), &[ 0.5, -0.5, -0.5]);
-    molecule.add_atom(default_species.nickel(), &[-0.5,  0.5, -0.5]);
-    molecule.add_atom(default_species.nickel(), &[-0.5, -0.5, -0.5]);
-    molecule.add_atom(default_species.carbon(), &[ 0.5,  0.0,  0.0]);
-    molecule.add_atom(default_species.carbon(), &[-0.5,  0.0,  0.0]);
-    molecule.add_atom(default_species.carbon(), &[ 0.0,  0.5,  0.0]);
-    molecule.add_atom(default_species.carbon(), &[ 0.0, -0.5,  0.0]);
-    molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0,  0.5]);
-    molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0, -0.5]);
-
+    if args.len() > 1 {
+        // Load file and, if successful, make models
+        println!("Loading {}...", &args[1]);
+        let atomic_positions = file_input::read_cell_file(&args[1]);
+        for atom in atomic_positions.iter() {
+            molecule.add_atom(default_species.oxygen(), &atom);
+        }
+    } else {
+        // Make dummy model if no input 
+        molecule.add_atom(default_species.sulphur(), &[ 0.0,  0.0, 0.0]);
+        molecule.add_atom(default_species.oxygen(), &[ 0.5,  0.5,  0.5]);
+        molecule.add_atom(default_species.oxygen(), &[ 0.5, -0.5,  0.5]);
+        molecule.add_atom(default_species.oxygen(), &[-0.5,  0.5,  0.5]);
+        molecule.add_atom(default_species.nickel(), &[-0.5, -0.5,  0.5]);
+        molecule.add_atom(default_species.nickel(), &[ 0.5,  0.5, -0.5]);
+        molecule.add_atom(default_species.nickel(), &[ 0.5, -0.5, -0.5]);
+        molecule.add_atom(default_species.nickel(), &[-0.5,  0.5, -0.5]);
+        molecule.add_atom(default_species.nickel(), &[-0.5, -0.5, -0.5]);
+        molecule.add_atom(default_species.carbon(), &[ 0.5,  0.0,  0.0]);
+        molecule.add_atom(default_species.carbon(), &[-0.5,  0.0,  0.0]);
+        molecule.add_atom(default_species.carbon(), &[ 0.0,  0.5,  0.0]);
+        molecule.add_atom(default_species.carbon(), &[ 0.0, -0.5,  0.0]);
+        molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0,  0.5]);
+        molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0, -0.5]);
+    }
     // ==============================
     // Make camera
     // ==============================
@@ -116,7 +119,7 @@ fn main() {
         backface_culling : glium::BackfaceCullingMode::CullCounterClockwise,
         .. Default::default()
     };
-
+    
     let light_position = [2.0,0.0,0.0,1.0f32];
 
     let mut fxaa_enabled = true;
@@ -159,7 +162,7 @@ fn main() {
                 glium::glutin::Event::Resized(x, y) => {
 		    camera.set_screen_size(&x, &y);
 		},
-
+                
                 // ==============================
                 // Key is pressed
                 // ==============================
