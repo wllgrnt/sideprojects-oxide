@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate glium;
+extern crate rustyline;
 
 mod fxaa;
 mod vertex;
@@ -14,17 +15,19 @@ mod camera;
 use glium::{DisplayBuild, Surface};
 use molecule::Molecule;
 use camera::Camera;
-use std::io::{self, Write};
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
+
 // ============================================================
 // Main Program
 // ============================================================
-/// Furnace - draw a molecule!
+/// Oxide - draw a molecule!
 fn main() {
     // ==============================
     // Make display
     // ==============================
     let display : glium::backend::glutin_backend::GlutinFacade = glium::glutin::WindowBuilder::new()
-        .with_title("Furnace: Molecular Visualisation".to_string())
+        .with_title("Oxide: Serious Viz-ness".to_string())
         .build_glium().unwrap();
 
     // ==============================
@@ -157,42 +160,42 @@ fn main() {
 		    glium::glutin::VirtualKeyCode::Escape => return,
 		    glium::glutin::VirtualKeyCode::Return => {
                         fxaa_enabled = !fxaa_enabled;
-                        println! (
-		            "FXAA is now {}",
-		            if fxaa_enabled { "on" } else { "off" }
-		        );
+                //         println! (
+		        //     "FXAA is now {}",
+		        //     if fxaa_enabled { "on" } else { "off" }
+		        // );
 	            },
 		    glium::glutin::VirtualKeyCode::Up => {
 		        camera.zoom_in();
-			println! ("Zooming in");
+			// println! ("Zooming in");
 		    },
 		    glium::glutin::VirtualKeyCode::Down => {
 		        camera.zoom_out();
-			println!("Zooming out");
+			// println!("Zooming out");
 		    },
 		    glium::glutin::VirtualKeyCode::Right => {
 		        camera.spin_clockwise();
-			println! ("Spinning clockwise");
+			// println! ("Spinning clockwise");
 		    },
 		    glium::glutin::VirtualKeyCode::Left => {
 		        camera.spin_anticlockwise();
-			println! ("Spinning anticlockwise");
+			// println! ("Spinning anticlockwise");
 		    },
 		    glium::glutin::VirtualKeyCode::K => {
 		        camera.azimuth_up();
-			println! ("Azimuthing up");
+			// println! ("Azimuthing up");
 		    },
 		    glium::glutin::VirtualKeyCode::J => {
 		        camera.azimuth_down();
-			println! ("Azimuthing down");
+			// println! ("Azimuthing down");
 		    },
 		    glium::glutin::VirtualKeyCode::H => {
 		        camera.orbit_left();
-			println! ("Orbiting left");
+			// println! ("Orbiting left");
 		    },
 		    glium::glutin::VirtualKeyCode::L => {
 		        camera.orbit_right();
-			println! ("Orbiting right");
+			// println! ("Orbiting right");
 		    },
                     glium::glutin::VirtualKeyCode::R => {
                         camera.set_angles (
@@ -201,34 +204,29 @@ fn main() {
                             &camera_psi_degrees,
                             &camera_r
                         );
-                        println! ("Resetting camera");
+                        // println! ("Resetting camera");
                     },
             glium::glutin::VirtualKeyCode::Space => {
-                println! ("Entering Edit Mode - Press Esc to Return");
+                println! ("Entering Edit Mode - Press Ctrl-C or Ctrl-D to Exit");
+                let mut rl = Editor::<()>::new();
+
                 'editmode: loop {
-                    for ev2 in display.poll_events() {
-                        match ev2 {
-                            glium::glutin::Event::KeyboardInput (
-                                glium::glutin::ElementState::Pressed,
-                                _,
-                                Some(key)
-                            ) => match key {
-                            // ==============================
-                            // Window is modified
-                            // ==============================
-                            glium::glutin::VirtualKeyCode::Escape => {
-                                println!(" ");
-                                println!("Returning...");
-                                break 'editmode;
-                            },
-                            _ =>  {
-                                    print!("bla");
-                                    io::stdout().flush().unwrap();
-                            },
-                        },
-                        _ => {},
-                        }
-                    }
+                            let readline = rl.readline(">> ");
+                            match readline {
+                                Ok(line) => {
+                                    println!("Line: {}", line);
+                                },
+                                Err(ReadlineError::Interrupted) => {
+                                    break 'editmode
+                                },
+                                Err(ReadlineError::Eof) => {
+                                    break 'editmode
+                                },
+                                Err(err) => {
+                                    println!("Error: {:?}", err);
+                                    break 'editmode
+                                }
+                            }
                 }
             },
 		    _ => {},

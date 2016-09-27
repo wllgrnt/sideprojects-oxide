@@ -6,3 +6,4 @@ authors = ["WillG <wpg23@cam.ac.uk>"]
 [dependencies]
 
 glium = "*"
+rustyline = "1.0.0"
