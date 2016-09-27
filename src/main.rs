@@ -149,19 +149,20 @@ fn main() {
         let mut target = display.draw();
         fxaa::draw(&fxaa, &mut target, fxaa_enabled, |target| {
             target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
-            //target.clear_color_and_depth((0.0, 0.0, 0.0, 1.0), 1.0);
             for atom in molecule.atoms() {
                 let mv_matrix = *camera.view_matrix() * *atom.model_matrix();
                 let mvp_matrix = *camera.vp_matrix() * *atom.model_matrix();
+                let perspective_scaling = camera.perspective_matrix().contents()[2][3];
 
                 let uniforms = uniform!{
-                    mv_matrix          : mv_matrix.contents().to_owned(),
-                    mvp_matrix         : mvp_matrix.contents().to_owned(),
-                    base_colour        : atom.species().colour().to_owned(),
-                    light_positions    : light_positions,
-                    light_brightnesses : light_brightnesses,
-                    size               : *atom.species().size(),
-                    z                  : atom.model_matrix().contents()[2][3],
+                    mv_matrix           : mv_matrix.contents().to_owned(),
+                    mvp_matrix          : mvp_matrix.contents().to_owned(),
+                    base_colour         : atom.species().colour().to_owned(),
+                    light_positions     : light_positions,
+                    light_brightnesses  : light_brightnesses,
+                    size                : *atom.species().size(),
+                    eye_space_depth     : mv_matrix.contents()[2][3],
+                    perspective_scaling : perspective_scaling,
                 };
                 target.draw(
                     atom.species().mesh().vertex_buffer(),

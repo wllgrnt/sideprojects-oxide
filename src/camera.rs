@@ -62,6 +62,7 @@ impl Camera {
     }
     
     pub fn view_matrix(&self) -> &Matrix {&self._view_matrix}
+    pub fn perspective_matrix(&self) -> &Matrix {&self._perspective_matrix}
     pub fn vp_matrix(&self) -> &Matrix {&self._vp_matrix}
     pub fn quaternion(&self) -> &Quaternion {&self._quaternion}
 
