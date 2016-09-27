@@ -56,11 +56,9 @@ fn main() {
     let mut molecule = Molecule::new();
     if args.len() > 1 {
         // Load file and, if successful, make models
+        let ref fname = args[1];
         println!("Loading {}...", &args[1]);
-        let atomic_positions = file_input::read_cell_file(&args[1]);
-        for atom in atomic_positions.iter() {
-            molecule.add_atom(default_species.oxygen(), &atom);
-        }
+        molecule = file_input::read_cell_file(fname, &default_species);
     } else {
         // Make dummy model if no input 
         molecule.add_atom(default_species.sulphur(), &[ 0.0,  0.0, 0.0]);

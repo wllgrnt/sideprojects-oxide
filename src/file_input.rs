@@ -14,12 +14,12 @@ use model::DefaultModels;
 ///
 /// Example: 
 /// cargo run --release test/salt.cell
-pub fn read_cell_file(fname : &String) -> Vec<[f32; 3]>{
+pub fn read_cell_file<'a>(fname : &String, default_species : &'a DefaultSpecies) -> Molecule<'a> {
 
     let path = Path::new("test.cell");
     let display = path.display();
 
-    let mut file = File::open(fname).unwrap(); //{
+    let mut file = File::open(fname).unwrap();
     let mut flines = String::new();
 
     file.read_to_string(&mut flines);
@@ -67,7 +67,8 @@ pub fn read_cell_file(fname : &String) -> Vec<[f32; 3]>{
     println!("Parsed fractional coordinates: {:?}", positions_frac);
     println!("Parsed atomic species: {:?}", species_list);
 
-    let mut pos : Vec<[f32; 3]> = Vec::new();
+    let mut molecule = Molecule::new();
+
     for (i, atom) in species_list.iter().enumerate() {
         let mut temp_pos : [f32; 3] = [0.0; 3];
         for k in 0..3 {
@@ -75,7 +76,8 @@ pub fn read_cell_file(fname : &String) -> Vec<[f32; 3]>{
                 temp_pos[l] += lattice_cart[k][l] * positions_frac[i][k] - lattice_cart[k][l]/2.0;
             }
         }
-        pos.push(temp_pos);
+        // just stick to oxygen for now
+        molecule.add_atom(default_species.oxygen(), &temp_pos);
     }
-    return pos
+   return molecule
 }
