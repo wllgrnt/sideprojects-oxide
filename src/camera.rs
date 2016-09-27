@@ -199,11 +199,6 @@ impl Camera {
             [0.0, 0.0, 0.0, 1.0    ]
         ]);
 
-        /*self._view_matrix = zoom_matrix
-	                      * spin_matrix
-	                      * azimuthal_matrix
-			              * orbital_matrix
-			              * focus_translation_matrix;*/
         self._view_matrix = zoom_matrix
                           * rotation_matrix
                           * focus_translation_matrix;

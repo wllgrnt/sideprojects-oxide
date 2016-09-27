@@ -71,20 +71,16 @@ impl DefaultPrograms {
 
             uniform mat4 mv_matrix;
             uniform mat4 mvp_matrix;
-            uniform vec4 light_position;
 
             in vec4 _position;
             in vec4 _normal;
             
             out vec2 fragment_xy;
-            out vec3 fragment_light_vector;
+            out vec3 fragment_position;
 
             void main() {
-                vec4 position = _position*mv_matrix;
-                vec4 light_vector = light_position-position;
-                
-                fragment_xy = vec2(_normal[0],_normal[1]);
-                fragment_light_vector = vec3(light_vector[0],light_vector[1],light_vector[2]);
+                fragment_xy = _normal.xy;
+                fragment_position = (_position*mv_matrix).xyz;
 
                 gl_Position = _position*mvp_matrix;
             }
@@ -94,12 +90,15 @@ impl DefaultPrograms {
         let fragment_shader_sphere : &'static str = r#"
             #version 140
 
-            uniform vec3 colour;
-            uniform float size;
-            uniform float light_brightness;
+            uniform mat4 mvp_matrix;
+            uniform vec3 base_colour;
+            uniform float size;              // the radius of the sphere
+            uniform float z;                 // the z coordinate of the centre of the sphere
+            uniform mat3 light_positions;
+            uniform vec3 light_brightnesses;
 
             in vec2 fragment_xy;
-            in vec3 fragment_light_vector;
+            in vec3 fragment_position;
 
             out vec4 color;
 
@@ -108,19 +107,28 @@ impl DefaultPrograms {
                 if (xy_squared > 1)
                     discard;
                 vec3 normal = vec3(fragment_xy[0],fragment_xy[1],-sqrt(1-xy_squared));
-                vec3 light_vector = vec3 (
-                    fragment_light_vector[0],
-                    fragment_light_vector[1],
-                    fragment_light_vector[2]-size*normal[2]
-                );
-                float light_distance_squared = dot(light_vector,light_vector);
-                float cos_light_angle = clamp (
-                    dot(normal,light_vector) * inversesqrt(light_distance_squared),
-                    0,
-                    1
-                );
-                vec3 colour3 = colour*(light_brightness*cos_light_angle/light_distance_squared+0.05);
-                color = vec4(colour3, 1.0);
+                float z_change = -size*normal[2]; // positive, because normal[2] is negative
+
+                float brightness = 0.05; // ambient lighting
+                
+                // diffuse lighting
+                for (int i=0; i<3; ++i) {
+                    vec3 light_vector = light_positions[i]-fragment_position;
+                    light_vector[2] += z_change;
+                    float light_distance_squared = dot(light_vector, light_vector);
+                    float cos_light_angle = clamp (
+                        dot(normal,light_vector) * inversesqrt(light_distance_squared),
+                        0,
+                        1
+                    );
+                    brightness += light_brightnesses[i]*cos_light_angle/light_distance_squared;
+                }
+                
+                color = vec4(base_colour*brightness, 1.0);
+
+                // correct the z-position of the fragment
+                gl_FragDepth = (mvp_matrix[2][2]*(z-z_change)+mvp_matrix[2][3])
+                             / (mvp_matrix[3][2]*(z-z_change)+mvp_matrix[3][3]);
             }
         "#;
         

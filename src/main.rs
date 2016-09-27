@@ -68,8 +68,15 @@ fn main() {
     // ==============================
     // Make lights
     // ==============================
-    let light = Light::new(&[2.0,0.0,0.0],&1.0);
+    let lights = [
+        Light::new(&[ 2.0, 0.0, 0.0],&3.0),
+        Light::new(&[-1.0, 1.0, 0.0],&1.0),
+        Light::new(&[ 0.0,-1.0, 1.0],&1.0),
+    ];
     let mut light_toggle = true;
+    const LIGHT_COUNT : usize = 3;
+    let mut light_positions : [[f32;LIGHT_COUNT];3] = Default::default();
+    let mut light_brightnesses : [f32;LIGHT_COUNT] = Default::default();
 
     // ==============================
     // Make camera
@@ -121,27 +128,40 @@ fn main() {
     // Run everything
     // ==============================
     loop {
-        let light_position = if light_toggle {
-            *camera.view_matrix() * *light.position()
-        } else {
-            light.position().to_owned()
-        };
+        // calculate light positions.
+        for i in 0..LIGHT_COUNT {
+            let light_position = if light_toggle {
+                *camera.view_matrix() * *lights[i].position()
+            } else {
+                lights[i].position().to_owned()
+            };
+            
+            light_positions[i] = [
+                light_position[0],
+                light_position[1],
+                light_position[2]
+            ];
+            light_brightnesses[i] = lights[i].brightness().to_owned();
+        }
 
         molecule.rotate_atoms_against_camera(&camera);
 
         let mut target = display.draw();
         fxaa::draw(&fxaa, &mut target, fxaa_enabled, |target| {
             target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
+            //target.clear_color_and_depth((0.0, 0.0, 0.0, 1.0), 1.0);
             for atom in molecule.atoms() {
                 let mv_matrix = *camera.view_matrix() * *atom.model_matrix();
                 let mvp_matrix = *camera.vp_matrix() * *atom.model_matrix();
+
                 let uniforms = uniform!{
-                    mv_matrix        : mv_matrix.contents().to_owned(),
-                    mvp_matrix       : mvp_matrix.contents().to_owned(),
-                    colour           : atom.species().colour().to_owned(),
-                    light_position   : light_position,
-                    light_brightness : light.brightness().to_owned(),
-                    size             : *atom.species().size(),
+                    mv_matrix          : mv_matrix.contents().to_owned(),
+                    mvp_matrix         : mvp_matrix.contents().to_owned(),
+                    base_colour        : atom.species().colour().to_owned(),
+                    light_positions    : light_positions,
+                    light_brightnesses : light_brightnesses,
+                    size               : *atom.species().size(),
+                    z                  : atom.model_matrix().contents()[2][3],
                 };
                 target.draw(
                     atom.species().mesh().vertex_buffer(),
