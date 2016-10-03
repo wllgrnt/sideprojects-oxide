@@ -31,15 +31,17 @@ pub fn read_cell_file<'a>(fname : &String, default_species : &'a DefaultSpecies)
     let mut species_list : Vec<&str> = Vec::new();
 
     for (i, line) in flines.iter().enumerate() {
-        if line.to_lowercase() == "%block lattice_cart" {
+        if line.to_lowercase().trim() == "%block lattice_cart" {
             let mut j = i;
             loop {
                 j += 1;
-                if flines[j].to_lowercase() == "%endblock lattice_cart" {
+                if flines[j].to_lowercase().trim() == "%endblock lattice_cart" {
                     break;
                 } else {
-                    let temp : Vec<f32> = flines[j]
-                        .split_whitespace().map(|s| s.parse::<f32>().unwrap()).collect();
+                    let temp : Vec<f32> = flines[j].trim()
+                                                   .split_whitespace()
+                                                   .map(|s| s.parse::<f32>().unwrap())
+                                                   .collect();
                     lattice_cart.push(temp);
                 }
             }
@@ -50,10 +52,10 @@ pub fn read_cell_file<'a>(fname : &String, default_species : &'a DefaultSpecies)
                 if flines[j].to_lowercase() == "%endblock positions_frac" {
                     break;
                 } else {
-                    let temp : Vec<&str> = flines[j].split_whitespace().collect();
+                    let temp : Vec<&str> = flines[j].trim().split_whitespace().collect();
                     let mut temp_pos : Vec<f32> = Vec::new();
                     for k in 1..4 {
-                        temp_pos.push(temp[k].parse().unwrap());
+                        temp_pos.push(temp[k].trim().parse().unwrap());
                     }
                     let atom = temp[0];
                     positions_frac.push(temp_pos);
