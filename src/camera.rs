@@ -10,13 +10,14 @@ use quaternion::Quaternion;
 // ============================================================
 pub struct Camera {
     _focus              : [f32;3],
-    _r                  : f32,
+    _scale              : f32,
     _quaternion         : Quaternion,
     _cos_half_step      : f32,
     _sin_half_step      : f32,
-    _r_step             : f32,
+    _scale_step         : f32,
     _field_of_view      : f32,
     _near_plane         : f32,
+    _distance_to_focus  : f32,
     _far_plane          : f32,
     _screen_size        : [u32;2],
     _view_matrix        : Matrix,
@@ -31,10 +32,11 @@ impl Camera {
         in_theta_degrees         : &f32,
         in_phi_degrees           : &f32,
         in_psi_degrees           : &f32,
-        in_r                     : &f32,
+        in_scale                 : &f32,
         in_field_of_view_degrees : &f32,
         in_near_plane            : &f32,
-        in_far_plane             : &f32
+        in_distance_to_focus     : &f32,
+        in_far_plane             : &f32,
     ) -> Camera {
 
         let (w, h) = (*in_display).get_framebuffer_dimensions();
@@ -44,20 +46,21 @@ impl Camera {
 
         let mut camera = Camera {
             _focus              : in_focus.clone(),
-            _r                  : in_r.clone(),
+            _scale              : in_scale.clone(),
             _quaternion         : Quaternion::new(&1.0,&0.0,&0.0,&0.0),
             _cos_half_step      : half_step_radians.cos(),
             _sin_half_step      : half_step_radians.sin(),
-            _r_step             : 0.1,
+            _scale_step         : 1.1,
             _field_of_view      : in_field_of_view_degrees*f32::consts::PI/180.0,
             _near_plane         : in_near_plane.clone(),
+            _distance_to_focus  : in_distance_to_focus.clone(),
             _far_plane          : in_far_plane.clone(),
             _screen_size        : [w, h],
             _view_matrix        : Matrix::new([[0.0;4];4]),   // dummy value
             _perspective_matrix : Matrix::new([[0.0;4];4]),   // dummy value
             _vp_matrix          : Matrix::new([[0.0;4];4]),   // dummy value
         };
-        camera.set_angles(in_theta_degrees, in_phi_degrees, in_psi_degrees, in_r);
+        camera.set_angles(in_theta_degrees, in_phi_degrees, in_psi_degrees, in_scale);
         camera
     }
     
@@ -71,7 +74,7 @@ impl Camera {
         in_theta_degrees : &f32,
         in_phi_degrees   : &f32,
         in_psi_degrees   : &f32,
-        in_r             : &f32
+        in_scale         : &f32
     ) {
         let half_theta_radians = in_theta_degrees*f32::consts::PI/360.0;
         let half_phi_radians = in_phi_degrees*f32::consts::PI/360.0;
@@ -93,12 +96,12 @@ impl Camera {
             &0.0,
         );
         
-        self._r = in_r.clone();
+        self._scale = in_scale.clone();
         self.update();
     }
 
-    pub fn zoom_in (&mut self) {if self._r > self._r_step {self._r -= self._r_step} self.update();}
-    pub fn zoom_out (&mut self) {self._r += self._r_step; self.update();}
+    pub fn zoom_in (&mut self) {self._scale /= self._scale_step; self.update();}
+    pub fn zoom_out (&mut self) {self._scale *= self._scale_step; self.update();}
     pub fn spin_clockwise (&mut self) {
         self._quaternion.left_multiply(&Quaternion::new(
             &self._cos_half_step,
@@ -174,11 +177,13 @@ impl Camera {
         let s = 1.0/(self._field_of_view/2.0).tan();
         let n = self._near_plane.clone();
         let f = self._far_plane.clone();
+        let x = 1.0/self._scale;
+        let d = self._distance_to_focus.clone();
         self._perspective_matrix = Matrix::new([
-            [s/w, 0.0, 0.0        , 0.0          ],
-            [0.0, s/h, 0.0        , 0.0          ],
-            [0.0, 0.0, (f+n)/(f-n), 2.0*f*n/(n-f)],
-            [0.0, 0.0, 1.0        , 0.0          ]
+            [x*s/w, 0.0  , 0.0          , 0.0                    ],
+            [0.0  , x*s/h, 0.0          , 0.0                    ],
+            [0.0  , 0.0  , x*(f+n)/(f-n), ((f+n)*d-2.0*f*n)/(f-n)],
+            [0.0  , 0.0  , x            , d                      ]
         ]);
         
         // Translate so that the focus is centred.
@@ -192,18 +197,8 @@ impl Camera {
         self._quaternion.normalise();
         let rotation_matrix = self._quaternion.rotation_matrix();
 
-        // r is the distance of the camera from the focus
-        let zoom_matrix = Matrix::new([
-            [1.0, 0.0, 0.0, 0.0    ],
-            [0.0, 1.0, 0.0, 0.0    ],
-            [0.0, 0.0, 1.0, self._r],
-            [0.0, 0.0, 0.0, 1.0    ]
-        ]);
-
-        self._view_matrix = zoom_matrix
-                          * rotation_matrix
-                          * focus_translation_matrix;
-        self._vp_matrix = self._perspective_matrix*self._view_matrix;
+        self._view_matrix = rotation_matrix * focus_translation_matrix;
+        self._vp_matrix = self._perspective_matrix * self._view_matrix;
     }
 }
 

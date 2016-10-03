@@ -99,10 +99,12 @@ fn main() {
     let camera_theta_degrees = 0.0;
     let camera_phi_degrees = 0.0;
     let camera_psi_degrees = 0.0;
-    let camera_r = 2.0;
+    let camera_scale= 1.0;
     // field of view and clipping planes
     let camera_field_of_view_degrees = 90.0;
+    // dimensionless distances. To get angstroms, multiply by camera._scale
     let camera_near_plane = 1.0;
+    let camera_distance_to_focus = 2.0;
     let camera_far_plane = 10.0;
 
     let mut camera = Camera::new (
@@ -111,10 +113,11 @@ fn main() {
 	    &camera_theta_degrees,
 	    &camera_phi_degrees,
 	    &camera_psi_degrees,
-	    &camera_r,
+	    &camera_scale,
         &camera_field_of_view_degrees,
         &camera_near_plane,
-        &camera_far_plane
+        &camera_distance_to_focus,
+        &camera_far_plane,
     );
 
     // ==============================
@@ -214,7 +217,7 @@ fn main() {
                             &camera_theta_degrees,
                             &camera_phi_degrees,
                             &camera_psi_degrees,
-                            &camera_r
+                            &camera_scale,
                         );
                         println! ("Resetting camera");
                     },
