@@ -145,8 +145,13 @@ impl FxaaSystem {
     }
 }
 
-pub fn draw<T, F, R>(system: &FxaaSystem, target: &mut T, enabled: bool, mut draw: F)
-                     -> R where T: Surface, F: FnMut(&mut SimpleFrameBuffer) -> R
+pub fn draw<T, F, R>(
+    system   : &FxaaSystem,
+    target   : &mut T,
+    enabled  : bool,
+    mut draw : F
+) -> R where T: Surface, 
+             F: FnMut(&mut SimpleFrameBuffer) -> R
 {
     let target_dimensions = target.get_dimensions();
 
@@ -173,24 +178,34 @@ pub fn draw<T, F, R>(system: &FxaaSystem, target: &mut T, enabled: bool, mut dra
     }
 
     if target_color.is_none() {
-        let texture = glium::texture::Texture2d::empty(&system.context,
-                                                       target_dimensions.0 as u32,
-                                                       target_dimensions.1 as u32).unwrap();
+        let texture = glium::texture::Texture2d::empty(
+            &system.context,
+            target_dimensions.0 as u32,
+            target_dimensions.1 as u32
+        ).unwrap();
         *target_color = Some(texture);
     }
+    
     let target_color = target_color.as_ref().unwrap();
 
     if target_depth.is_none() {
-        let texture = glium::framebuffer::DepthRenderBuffer::new(&system.context,
-                                                                  glium::texture::DepthFormat::I24,
-                                                                  target_dimensions.0 as u32,
-                                                                  target_dimensions.1 as u32).unwrap();
+        let texture = glium::framebuffer::DepthRenderBuffer::new(
+            &system.context,
+            glium::texture::DepthFormat::I24,
+            target_dimensions.0 as u32,
+            target_dimensions.1 as u32
+        ).unwrap();
         *target_depth = Some(texture);
     }
     let target_depth = target_depth.as_ref().unwrap();
 
-    let output = draw(&mut SimpleFrameBuffer::with_depth_buffer(&system.context, target_color,
-                                                                                 target_depth).unwrap());
+    let output = draw(
+        &mut SimpleFrameBuffer::with_depth_buffer(
+            &system.context,
+            target_color,
+            target_depth
+        ).unwrap()
+    );
 
     let uniforms = uniform! {
         tex: &*target_color,
@@ -198,8 +213,13 @@ pub fn draw<T, F, R>(system: &FxaaSystem, target: &mut T, enabled: bool, mut dra
         resolution: (target_dimensions.0 as f32, target_dimensions.1 as f32)
     };
 
-    target.draw(&system.vertex_buffer, &system.index_buffer, &system.program, &uniforms,
-                &Default::default()).unwrap();
+    target.draw(
+        &system.vertex_buffer,
+        &system.index_buffer,
+        &system.program,
+        &uniforms,
+        &Default::default()
+    ).unwrap();
 
     output
 }

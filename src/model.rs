@@ -1,48 +1,78 @@
-extern crate glium;
+use glium;
+use glium::Surface;
 
-use vertex::Vertex;
+use atom::Atom;
+use camera::Camera;
+use lights::Lights;
 use program;
+use program::Program;
+use vertex::Vertex;
 
 // ============================================================
 // Model
 // ============================================================
-/// The mesh of a single object (a triangle, a sphere, a goove...)
+/// The model of a single object (a triangle, a sphere, a goove...)
 pub struct Model<'a> {
-    /// The vertices of the triangles out of which the mesh is made
+    /// The vertices of the triangles out of which the model is made
     _vertices        : Vec<Vertex>,
     /// The order in which the vertices should be drawn.
     _index_type      : glium::index::PrimitiveType,
     _indices         : Vec<u16>,
-    _program         : &'a glium::Program,
     _vertex_buffer   : glium::VertexBuffer<Vertex>,
     _index_buffer    : glium::index::IndexBuffer<u16>,
+    _program         : &'a Program<'a>,
+    _draw_parameters : glium::DrawParameters<'a>,
 }
 
 impl<'a> Model<'a> {
     pub fn new (
-        in_display    : &glium::backend::glutin_backend::GlutinFacade,
-        in_vertices   : &Vec<Vertex>,
-        in_index_type : &glium::index::PrimitiveType,
-        in_indices    : &Vec<u16>,
-        in_program    : &'a glium::Program,
+        in_display         : &glium::backend::glutin_backend::GlutinFacade,
+        in_vertices        : &Vec<Vertex>,
+        in_index_type      : &glium::index::PrimitiveType,
+        in_indices         : &Vec<u16>,
+        in_program         : &'a Program<'a>,
+        in_draw_parameters : &glium::DrawParameters<'a>,
     ) -> Model<'a> {
         Model {
-            _vertices      : in_vertices.to_owned(),
-            _index_type    : in_index_type.to_owned(),
-            _indices       : in_indices.to_owned(),
-            _vertex_buffer : glium::VertexBuffer::new(in_display, in_vertices).unwrap(),
-            _index_buffer  : glium::index::IndexBuffer::new (
-                in_display,
-                *in_index_type,
-                in_indices,
-            ).unwrap(),
-            _program       : in_program,
+            _vertices        : in_vertices.clone(),
+            _index_type      : in_index_type.clone(),
+            _indices         : in_indices.clone(),
+            _vertex_buffer   : glium::VertexBuffer::new(
+                                   in_display,
+                                   in_vertices
+                               ).unwrap(),
+            _index_buffer    : glium::index::IndexBuffer::new(
+                                   in_display,
+                                   *in_index_type,
+                                   in_indices,
+                               ).unwrap(),
+            _program         : in_program,
+            _draw_parameters : in_draw_parameters.clone(),
         }
     }
 
-    pub fn vertex_buffer(&self) -> &glium::VertexBuffer<Vertex> {&self._vertex_buffer}
-    pub fn index_buffer(&self) -> &glium::index::IndexBuffer<u16> {&self._index_buffer}
-    pub fn program(&self) -> &glium::Program {&self._program}
+    pub fn vertex_buffer(&self) -> &glium::VertexBuffer<Vertex> {
+        &self._vertex_buffer
+    }
+    pub fn index_buffer(&self) -> &glium::index::IndexBuffer<u16> {
+        &self._index_buffer
+    }
+    pub fn program(&self) -> &Program {
+        &self._program
+    }
+    pub fn draw_parameters(&self) -> &glium::DrawParameters {
+        &self._draw_parameters
+    }
+
+    pub fn draw(
+        &self,
+        in_target : &mut glium::framebuffer::SimpleFrameBuffer,
+        in_lights : &Lights,
+        in_camera : &Camera,
+        in_atom   : &Atom,
+    ) {
+        self._program.draw(in_target, in_lights, in_camera, in_atom, &self);
+    }
 }
 
 pub struct DefaultModels<'a> {
@@ -62,6 +92,16 @@ impl<'a> DefaultModels<'a> {
         let sr_1_2 = 1.0/2.0f32.sqrt();    // for tetrahedron
         let phi = 2.0/(1.0+5.0f32.sqrt()); // for icosahedron
 
+        let params = glium::DrawParameters {
+            depth: glium::Depth {
+                test: glium::DepthTest::IfLess,
+                write: true,
+                .. Default::default()
+            },
+            backface_culling : glium::BackfaceCullingMode::CullCounterClockwise,
+            .. Default::default()
+        };
+
         DefaultModels {
             // ==============================
             // triangle
@@ -69,13 +109,14 @@ impl<'a> DefaultModels<'a> {
             _triangle : Model::new(
                 in_display,
                 &vec! [
-                    Vertex::new([-1.0, -1.0, 0.0], [0.0, 0.0, 1.0]),
-                    Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]),
-                    Vertex::new([ 1.0,  0.0, 0.0], [0.0, 0.0, 1.0]),
+                    Vertex::new(&[-1.0, -1.0, 0.0], &[0.0, 0.0, 1.0]),
+                    Vertex::new(&[-1.0,  1.0, 0.0], &[0.0, 0.0, 1.0]),
+                    Vertex::new(&[ 1.0,  0.0, 0.0], &[0.0, 0.0, 1.0]),
                 ],
                 &glium::index::PrimitiveType::TriangleStrip,
                 &vec![0, 1, 2u16],
                 in_default_programs.polyhedron(),
+                &params,
             ),
 
             // ==============================
@@ -84,14 +125,15 @@ impl<'a> DefaultModels<'a> {
             _square : Model::new(
                 in_display,
                 &vec! [
-                    Vertex::new([-1.0, -1.0, 0.0], [0.0, 0.0, 1.0]),
-                    Vertex::new([ 1.0, -1.0, 0.0], [0.0, 0.0, 1.0]),
-                    Vertex::new([-1.0,  1.0, 0.0], [0.0, 0.0, 1.0]),
-                    Vertex::new([ 1.0,  1.0, 0.0], [0.0, 0.0, 1.0]),
+                    Vertex::new(&[-1.0, -1.0, 0.0], &[0.0, 0.0, 1.0]),
+                    Vertex::new(&[ 1.0, -1.0, 0.0], &[0.0, 0.0, 1.0]),
+                    Vertex::new(&[-1.0,  1.0, 0.0], &[0.0, 0.0, 1.0]),
+                    Vertex::new(&[ 1.0,  1.0, 0.0], &[0.0, 0.0, 1.0]),
                 ],
                 &glium::index::PrimitiveType::TriangleStrip,
                 &vec![0, 2, 1, 3u16],
                 in_default_programs.polyhedron(),
+                &params,
             ),
 
             // ==============================
@@ -100,14 +142,15 @@ impl<'a> DefaultModels<'a> {
             _tetrahedron : Model::new(
                 in_display,
                 &vec![
-                    Vertex::new([-1.0,  0.0, -sr_1_2],[-1.0,  0.0, -sr_1_2]),
-                    Vertex::new([ 1.0,  0.0, -sr_1_2],[ 1.0,  0.0, -sr_1_2]),
-                    Vertex::new([ 0.0, -1.0,  sr_1_2],[ 0.0, -1.0,  sr_1_2]),
-                    Vertex::new([ 0.0,  1.0,  sr_1_2],[ 0.0,  1.0,  sr_1_2]),
+                    Vertex::new(&[-1.0,  0.0, -sr_1_2],&[-1.0,  0.0, -sr_1_2]),
+                    Vertex::new(&[ 1.0,  0.0, -sr_1_2],&[ 1.0,  0.0, -sr_1_2]),
+                    Vertex::new(&[ 0.0, -1.0,  sr_1_2],&[ 0.0, -1.0,  sr_1_2]),
+                    Vertex::new(&[ 0.0,  1.0,  sr_1_2],&[ 0.0,  1.0,  sr_1_2]),
                 ],
                 &glium::index::PrimitiveType::TriangleStrip,
                 &vec![0, 1, 3, 2, 0, 1u16],
                 in_default_programs.polyhedron(),
+                &params,
             ),
 
             // ==============================
@@ -119,14 +162,14 @@ impl<'a> DefaultModels<'a> {
             _cube : Model::new(
                 in_display,
                 &vec![
-                    Vertex::new([-1.0, -1.0, -1.0],[-1.0, -1.0, -1.0]),
-                    Vertex::new([ 1.0, -1.0, -1.0],[ 1.0, -1.0, -1.0]),
-                    Vertex::new([-1.0,  1.0, -1.0],[-1.0,  1.0, -1.0]),
-                    Vertex::new([ 1.0,  1.0, -1.0],[ 1.0,  1.0, -1.0]),
-                    Vertex::new([-1.0, -1.0,  1.0],[-1.0, -1.0,  1.0]),
-                    Vertex::new([ 1.0, -1.0,  1.0],[ 1.0, -1.0,  1.0]),
-                    Vertex::new([-1.0,  1.0,  1.0],[-1.0,  1.0,  1.0]),
-                    Vertex::new([ 1.0,  1.0,  1.0],[ 1.0,  1.0,  1.0])
+                    Vertex::new(&[-1.0, -1.0, -1.0],&[-1.0, -1.0, -1.0]),
+                    Vertex::new(&[ 1.0, -1.0, -1.0],&[ 1.0, -1.0, -1.0]),
+                    Vertex::new(&[-1.0,  1.0, -1.0],&[-1.0,  1.0, -1.0]),
+                    Vertex::new(&[ 1.0,  1.0, -1.0],&[ 1.0,  1.0, -1.0]),
+                    Vertex::new(&[-1.0, -1.0,  1.0],&[-1.0, -1.0,  1.0]),
+                    Vertex::new(&[ 1.0, -1.0,  1.0],&[ 1.0, -1.0,  1.0]),
+                    Vertex::new(&[-1.0,  1.0,  1.0],&[-1.0,  1.0,  1.0]),
+                    Vertex::new(&[ 1.0,  1.0,  1.0],&[ 1.0,  1.0,  1.0])
                 ],
                 &glium::index::PrimitiveType::TrianglesList,
                 &vec![
@@ -138,6 +181,7 @@ impl<'a> DefaultModels<'a> {
                     0, 4, 2, 6, 2, 4u16 // the -x face
                 ],
                 in_default_programs.polyhedron(),
+                &params,
             ),
 
             // ==============================
@@ -146,18 +190,18 @@ impl<'a> DefaultModels<'a> {
             _icosahedron : Model::new(
                 in_display,
                 &vec![
-                    Vertex::new([ 0.0,  1.0,  phi],[ 0.0,  1.0,  phi]),
-                    Vertex::new([ 0.0, -1.0,  phi],[ 0.0, -1.0,  phi]),
-                    Vertex::new([ 0.0,  1.0, -phi],[ 0.0,  1.0, -phi]),
-                    Vertex::new([ 0.0, -1.0, -phi],[ 0.0, -1.0, -phi]),
-                    Vertex::new([ phi,  0.0,  1.0],[ phi,  0.0,  1.0]),
-                    Vertex::new([ phi,  0.0, -1.0],[ phi,  0.0, -1.0]),
-                    Vertex::new([-phi,  0.0,  1.0],[-phi,  0.0,  1.0]),
-                    Vertex::new([-phi,  0.0, -1.0],[-phi,  0.0, -1.0]),
-                    Vertex::new([ 1.0,  phi,  0.0],[ 1.0,  phi,  0.0]),
-                    Vertex::new([-1.0,  phi,  0.0],[-1.0,  phi,  0.0]),
-                    Vertex::new([ 1.0, -phi,  0.0],[ 1.0, -phi,  0.0]),
-                    Vertex::new([-1.0, -phi,  0.0],[-1.0, -phi,  0.0]),
+                    Vertex::new(&[ 0.0,  1.0,  phi],&[ 0.0,  1.0,  phi]),
+                    Vertex::new(&[ 0.0, -1.0,  phi],&[ 0.0, -1.0,  phi]),
+                    Vertex::new(&[ 0.0,  1.0, -phi],&[ 0.0,  1.0, -phi]),
+                    Vertex::new(&[ 0.0, -1.0, -phi],&[ 0.0, -1.0, -phi]),
+                    Vertex::new(&[ phi,  0.0,  1.0],&[ phi,  0.0,  1.0]),
+                    Vertex::new(&[ phi,  0.0, -1.0],&[ phi,  0.0, -1.0]),
+                    Vertex::new(&[-phi,  0.0,  1.0],&[-phi,  0.0,  1.0]),
+                    Vertex::new(&[-phi,  0.0, -1.0],&[-phi,  0.0, -1.0]),
+                    Vertex::new(&[ 1.0,  phi,  0.0],&[ 1.0,  phi,  0.0]),
+                    Vertex::new(&[-1.0,  phi,  0.0],&[-1.0,  phi,  0.0]),
+                    Vertex::new(&[ 1.0, -phi,  0.0],&[ 1.0, -phi,  0.0]),
+                    Vertex::new(&[-1.0, -phi,  0.0],&[-1.0, -phi,  0.0]),
                 ],
                 &glium::index::PrimitiveType::TrianglesList,
                 &vec![
@@ -183,6 +227,7 @@ impl<'a> DefaultModels<'a> {
                     3, 11, 7u16
                 ],
                 in_default_programs.polyhedron(),
+                &params,
             ),
 
             // ==============================
@@ -191,14 +236,15 @@ impl<'a> DefaultModels<'a> {
             _sphere : Model::new(
                 in_display,
                 &vec! [
-                    Vertex::new([-1.0, -1.0, 0.0], [-1.0, -1.0, 0.0]),
-                    Vertex::new([ 1.0, -1.0, 0.0], [ 1.0, -1.0, 0.0]),
-                    Vertex::new([-1.0,  1.0, 0.0], [-1.0,  1.0, 0.0]),
-                    Vertex::new([ 1.0,  1.0, 0.0], [ 1.0,  1.0, 0.0]),
+                    Vertex::new(&[-1.0, -1.0, 0.0], &[-1.0, -1.0, 0.0]),
+                    Vertex::new(&[ 1.0, -1.0, 0.0], &[ 1.0, -1.0, 0.0]),
+                    Vertex::new(&[-1.0,  1.0, 0.0], &[-1.0,  1.0, 0.0]),
+                    Vertex::new(&[ 1.0,  1.0, 0.0], &[ 1.0,  1.0, 0.0]),
                 ],
                 &glium::index::PrimitiveType::TriangleStrip,
                 &vec![0, 2, 1, 3u16],
                 in_default_programs.sphere(),
+                &params,
             ),
         }
     }
