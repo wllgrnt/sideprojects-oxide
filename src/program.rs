@@ -131,7 +131,8 @@ impl<'a> DefaultPrograms<'a> {
         | {
             let mv_matrix = *in_camera.view_matrix() * *in_atom.model_matrix();
             let mvp_matrix = *in_camera.vp_matrix() * *in_atom.model_matrix();
-            let perspective_scaling = in_camera.perspective_matrix().contents()[2][3];
+            let perspective = in_camera.perspective_matrix().contents();
+            let perspective = [[perspective[2][2],perspective[2][3]],[perspective[3][2],perspective[3][3]]];
 
             let uniforms = uniform!{
                 mv_matrix : mv_matrix.contents().clone(),
@@ -141,7 +142,7 @@ impl<'a> DefaultPrograms<'a> {
                 light_brightnesses : in_lights.brightnesses().clone(),
                 size : in_atom.species().size().clone(),
                 eye_space_depth : mv_matrix.contents()[2][3],
-                perspective_scaling : perspective_scaling,
+                perspective : perspective,
             };
 
             in_target.draw(
@@ -184,7 +185,7 @@ impl<'a> DefaultPrograms<'a> {
             uniform vec3 base_colour;
             uniform float size;                // the radius of the sphere
             uniform float eye_space_depth;     // the z coordinate of the centre of the sphere in eye space
-            uniform float perspective_scaling; // the [2][3] element of the perspective matrix
+            uniform mat2 perspective;         // the bottom right of the perspective matrix
             uniform mat3 light_positions;
             uniform vec3 light_brightnesses;
 
@@ -220,9 +221,12 @@ impl<'a> DefaultPrograms<'a> {
 
                 // correct the z-position of the fragment
                 // involves messy transformation from eye space to clip space to screen space.
-                gl_FragDepth = gl_FragCoord[2]
-                             + depth_change*perspective_scaling*(gl_DepthRange.far-gl_DepthRange.near)
-                             / (2.0*eye_space_depth*(eye_space_depth-depth_change));
+                vec2 zw_eye_space = vec2(eye_space_depth-depth_change,1.0);
+                vec2 zw_clip_space = zw_eye_space*perspective;
+                float z_ndc_space = zw_clip_space[0]/zw_clip_space[1];
+                float f = gl_DepthRange.far;
+                float n = gl_DepthRange.near;
+                gl_FragDepth = (z_ndc_space*(f-n)+f+n)/2;
             }
         "#;
 
@@ -254,17 +258,18 @@ impl<'a> DefaultPrograms<'a> {
         | {
             let mv_matrix = *in_camera.view_matrix() * *in_atom.model_matrix();
             let mvp_matrix = *in_camera.vp_matrix() * *in_atom.model_matrix();
-            let perspective_scaling = in_camera.perspective_matrix().contents()[2][3];
+            let perspective = in_camera.perspective_matrix().contents();
+            let perspective = [[perspective[2][2],perspective[2][3]],[perspective[3][2],perspective[3][3]]];
 
             let uniforms = uniform!{
-                mv_matrix : mv_matrix.contents().clone(),
-                mvp_matrix : mvp_matrix.contents().clone(),
-                base_colour : in_atom.species().colour().clone(),
-                light_positions : in_lights.positions().clone(),
+                mv_matrix          : mv_matrix.contents().clone(),
+                mvp_matrix         : mvp_matrix.contents().clone(),
+                base_colour        : in_atom.species().colour().clone(),
+                light_positions    : in_lights.positions().clone(),
                 light_brightnesses : in_lights.brightnesses().clone(),
-                size : in_atom.species().size().clone(),
-                eye_space_depth : mv_matrix.contents()[2][3],
-                perspective_scaling : perspective_scaling,
+                size               : in_atom.species().size().clone(),
+                eye_space_depth    : mv_matrix.contents()[2][3],
+                perspective        : perspective,
             };
 
             in_target.draw(
