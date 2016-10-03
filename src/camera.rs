@@ -43,15 +43,15 @@ impl Camera {
         let half_step_radians = angular_step_radians/2.0;
 
         let mut camera = Camera {
-            _focus              : in_focus.to_owned(),
-            _r                  : in_r.to_owned(),
+            _focus              : in_focus.clone(),
+            _r                  : in_r.clone(),
             _quaternion         : Quaternion::new(&1.0,&0.0,&0.0,&0.0),
             _cos_half_step      : half_step_radians.cos(),
             _sin_half_step      : half_step_radians.sin(),
             _r_step             : 0.1,
             _field_of_view      : in_field_of_view_degrees*f32::consts::PI/180.0,
-            _near_plane         : in_near_plane.to_owned(),
-            _far_plane          : in_far_plane.to_owned(),
+            _near_plane         : in_near_plane.clone(),
+            _far_plane          : in_far_plane.clone(),
             _screen_size        : [w, h],
             _view_matrix        : Matrix::new([[0.0;4];4]),   // dummy value
             _perspective_matrix : Matrix::new([[0.0;4];4]),   // dummy value
@@ -62,6 +62,7 @@ impl Camera {
     }
     
     pub fn view_matrix(&self) -> &Matrix {&self._view_matrix}
+    pub fn perspective_matrix(&self) -> &Matrix {&self._perspective_matrix}
     pub fn vp_matrix(&self) -> &Matrix {&self._vp_matrix}
     pub fn quaternion(&self) -> &Quaternion {&self._quaternion}
 
@@ -92,7 +93,7 @@ impl Camera {
             &0.0,
         );
         
-        self._r = in_r.to_owned();
+        self._r = in_r.clone();
         self.update();
     }
 
@@ -171,8 +172,8 @@ impl Camera {
         }
         
         let s = 1.0/(self._field_of_view/2.0).tan();
-        let n = self._near_plane.to_owned();
-        let f = self._far_plane.to_owned();
+        let n = self._near_plane.clone();
+        let f = self._far_plane.clone();
         self._perspective_matrix = Matrix::new([
             [s/w, 0.0, 0.0        , 0.0          ],
             [0.0, s/h, 0.0        , 0.0          ],
@@ -199,11 +200,6 @@ impl Camera {
             [0.0, 0.0, 0.0, 1.0    ]
         ]);
 
-        /*self._view_matrix = zoom_matrix
-	                      * spin_matrix
-	                      * azimuthal_matrix
-			              * orbital_matrix
-			              * focus_translation_matrix;*/
         self._view_matrix = zoom_matrix
                           * rotation_matrix
                           * focus_translation_matrix;

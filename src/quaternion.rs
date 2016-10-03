@@ -18,12 +18,7 @@ impl Quaternion {
         in_k : &f32,
     ) -> Quaternion {
         Quaternion {
-            _contents : [
-                in_r.to_owned(),
-                in_i.to_owned(),
-                in_j.to_owned(),
-                in_k.to_owned(),
-            ],
+            _contents : [in_r.clone(), in_i.clone(), in_j.clone(), in_k.clone(), ],
         }
     }
     
@@ -64,14 +59,14 @@ impl Quaternion {
 
     #[allow(dead_code)]
     pub fn right_multiply(&mut self, in_other : &Quaternion) {
-        let sr : f32 = self.r().to_owned();
-        let si : f32 = self.i().to_owned();
-        let sj : f32 = self.j().to_owned();
-        let sk : f32 = self.k().to_owned();
-        let or : f32 = in_other.r().to_owned();
-        let oi : f32 = in_other.i().to_owned();
-        let oj : f32 = in_other.j().to_owned();
-        let ok : f32 = in_other.k().to_owned();
+        let sr : f32 = self.r().clone();
+        let si : f32 = self.i().clone();
+        let sj : f32 = self.j().clone();
+        let sk : f32 = self.k().clone();
+        let or : f32 = in_other.r().clone();
+        let oi : f32 = in_other.i().clone();
+        let oj : f32 = in_other.j().clone();
+        let ok : f32 = in_other.k().clone();
         self._contents = [
             sr*or-si*oi-sj*oj-sk*ok,
             sr*oi+si*or+sj*ok-sk*oj,
@@ -82,14 +77,14 @@ impl Quaternion {
     
     #[allow(dead_code)]
     pub fn left_multiply(&mut self, in_other : &Quaternion) {
-        let sr : f32 = self.r().to_owned();
-        let si : f32 = self.i().to_owned();
-        let sj : f32 = self.j().to_owned();
-        let sk : f32 = self.k().to_owned();
-        let or : f32 = in_other.r().to_owned();
-        let oi : f32 = in_other.i().to_owned();
-        let oj : f32 = in_other.j().to_owned();
-        let ok : f32 = in_other.k().to_owned();
+        let sr : f32 = self.r().clone();
+        let si : f32 = self.i().clone();
+        let sj : f32 = self.j().clone();
+        let sk : f32 = self.k().clone();
+        let or : f32 = in_other.r().clone();
+        let oi : f32 = in_other.i().clone();
+        let oj : f32 = in_other.j().clone();
+        let ok : f32 = in_other.k().clone();
         self._contents = [
             or*sr-oi*si-oj*sj-ok*sk,
             or*si+oi*sr+oj*sk-ok*sj,
@@ -102,14 +97,14 @@ impl Quaternion {
 impl Mul<Quaternion> for Quaternion {
     type Output = Quaternion;
     fn mul (self, in_other : Quaternion) -> Quaternion {
-        let sr : f32 = self.r().to_owned();
-        let si : f32 = self.i().to_owned();
-        let sj : f32 = self.j().to_owned();
-        let sk : f32 = self.k().to_owned();
-        let or : f32 = in_other.r().to_owned();
-        let oi : f32 = in_other.i().to_owned();
-        let oj : f32 = in_other.j().to_owned();
-        let ok : f32 = in_other.k().to_owned();
+        let sr : f32 = self.r().clone();
+        let si : f32 = self.i().clone();
+        let sj : f32 = self.j().clone();
+        let sk : f32 = self.k().clone();
+        let or : f32 = in_other.r().clone();
+        let oi : f32 = in_other.i().clone();
+        let oj : f32 = in_other.j().clone();
+        let ok : f32 = in_other.k().clone();
         Quaternion::new(
             &(sr*or-si*oi-sj*oj-sk*ok),
             &(sr*oi+si*or+sj*ok-sk*oj),
