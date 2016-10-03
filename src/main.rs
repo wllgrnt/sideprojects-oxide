@@ -3,6 +3,7 @@ extern crate glium;
 
 mod atom;
 mod camera;
+mod file_input;
 mod fxaa;
 mod light;
 mod lights;
@@ -19,12 +20,18 @@ use molecule::Molecule;
 use light::Light;
 use lights::Lights;
 use camera::Camera;
+use std::env;
 
 // ============================================================
 // Main Program
 // ============================================================
 /// Furnace - draw a molecule!
 fn main() {
+    // ==============================
+    // Read command-line arguments
+    // ==============================
+    let args : Vec<String> = env::args().collect();
+
     // ==============================
     // Make display
     // ==============================
@@ -47,26 +54,33 @@ fn main() {
     // ==============================
     let default_species = species::DefaultSpecies::new(&default_models);
 
-    // ==============================
-    // Make molecule
-    // ==============================
+    // ==================================
+    // Make molecule from file or dummy 
+    // ==================================
     let mut molecule = Molecule::new();
-    molecule.add_atom(default_species.sulphur(), &[ 0.0,  0.0, 0.0]);
-    molecule.add_atom(default_species.oxygen(), &[ 0.5,  0.5,  0.5]);
-    molecule.add_atom(default_species.oxygen(), &[ 0.5, -0.5,  0.5]);
-    molecule.add_atom(default_species.oxygen(), &[-0.5,  0.5,  0.5]);
-    molecule.add_atom(default_species.nickel(), &[-0.5, -0.5,  0.5]);
-    molecule.add_atom(default_species.nickel(), &[ 0.5,  0.5, -0.5]);
-    molecule.add_atom(default_species.nickel(), &[ 0.5, -0.5, -0.5]);
-    molecule.add_atom(default_species.nickel(), &[-0.5,  0.5, -0.5]);
-    molecule.add_atom(default_species.nickel(), &[-0.5, -0.5, -0.5]);
-    molecule.add_atom(default_species.carbon(), &[ 0.5,  0.0,  0.0]);
-    molecule.add_atom(default_species.carbon(), &[-0.5,  0.0,  0.0]);
-    molecule.add_atom(default_species.carbon(), &[ 0.0,  0.5,  0.0]);
-    molecule.add_atom(default_species.carbon(), &[ 0.0, -0.5,  0.0]);
-    molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0,  0.5]);
-    molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0, -0.5]);
-
+    if args.len() > 1 {
+        // Load file and, if successful, make models
+        let ref fname = args[1];
+        println!("Loading {}...", &args[1]);
+        molecule = file_input::read_cell_file(fname, &default_species);
+    } else {
+        // Make dummy model if no input 
+        molecule.add_atom(default_species.sulphur(), &[ 0.0,  0.0, 0.0]);
+        molecule.add_atom(default_species.oxygen(), &[ 0.5,  0.5,  0.5]);
+        molecule.add_atom(default_species.oxygen(), &[ 0.5, -0.5,  0.5]);
+        molecule.add_atom(default_species.oxygen(), &[-0.5,  0.5,  0.5]);
+        molecule.add_atom(default_species.nickel(), &[-0.5, -0.5,  0.5]);
+        molecule.add_atom(default_species.nickel(), &[ 0.5,  0.5, -0.5]);
+        molecule.add_atom(default_species.nickel(), &[ 0.5, -0.5, -0.5]);
+        molecule.add_atom(default_species.nickel(), &[-0.5,  0.5, -0.5]);
+        molecule.add_atom(default_species.nickel(), &[-0.5, -0.5, -0.5]);
+        molecule.add_atom(default_species.carbon(), &[ 0.5,  0.0,  0.0]);
+        molecule.add_atom(default_species.carbon(), &[-0.5,  0.0,  0.0]);
+        molecule.add_atom(default_species.carbon(), &[ 0.0,  0.5,  0.0]);
+        molecule.add_atom(default_species.carbon(), &[ 0.0, -0.5,  0.0]);
+        molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0,  0.5]);
+        molecule.add_atom(default_species.carbon(), &[ 0.0,  0.0, -0.5]);
+    }
     // ==============================
     // Make lights
     // ==============================
