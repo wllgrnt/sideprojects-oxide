@@ -1,6 +1,9 @@
+use camera::Camera;
+use lights::Lights;
 use matrix::Matrix;
 use species::Species;
-use camera::Camera;
+
+use glium;
 
 // ============================================================
 // Atom
@@ -19,7 +22,7 @@ impl<'a> Atom<'a> {
     ) -> Atom<'a> {
         Atom {
             _species      : in_species,
-            _position     : in_position.to_owned(),
+            _position     : in_position.clone(),
             _model_matrix : Matrix::new([
                 [*in_species.size(), 0.0               , 0.0               , in_position[0]],
                 [0.0               , *in_species.size(), 0.0               , in_position[1]],
@@ -41,10 +44,18 @@ impl<'a> Atom<'a> {
             [0.0, 0.0, 0.0                  , 1.0              ]
         ]);
         
-        let mut quaternion = in_camera.quaternion().to_owned();
+        let mut quaternion = in_camera.quaternion().clone();
         quaternion.invert();
         let rotation_matrix = quaternion.rotation_matrix();
 
         self._model_matrix = translation_and_scaling_matrix * rotation_matrix;
+    }
+    pub fn draw(
+        &self,
+        in_target : &mut glium::framebuffer::SimpleFrameBuffer,
+        in_lights : &Lights,
+        in_camera : &Camera,
+    ) {
+        self._species.draw(in_target, in_lights, in_camera, &self);
     }
 }

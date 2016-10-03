@@ -1,31 +1,46 @@
+use atom::Atom;
+use camera::Camera;
+use lights::Lights;
 use model;
 use model::Model;
+
+use glium;
 
 // ============================================================
 // Species
 // ============================================================
 pub struct Species<'a> {
-    _mesh   : &'a Model<'a>,
+    _model   : &'a Model<'a>,
     _size   : f32,
     _colour : [f32;3],
 }
 
 impl<'a> Species<'a> {
     pub fn new (
-        in_mesh   : &'a Model,
+        in_model   : &'a Model,
         in_size   : &f32,
         in_colour : &[f32;3],
     ) -> Species<'a> {
         Species {
-            _mesh   : in_mesh,
-            _size   : in_size.to_owned(),
-            _colour : in_colour.to_owned()
+            _model   : in_model,
+            _size   : in_size.clone(),
+            _colour : in_colour.clone()
         }
     }
 
-    pub fn mesh(&self) -> &Model {&self._mesh}
+    pub fn model(&self) -> &Model {&self._model}
     pub fn size(&self) -> &f32  {&self._size}
     pub fn colour(&self) -> &[f32;3] {&self._colour}
+
+    pub fn draw(
+        &self,
+        in_target : &mut glium::framebuffer::SimpleFrameBuffer,
+        in_lights : &Lights,
+        in_camera : &Camera,
+        in_atom   : &Atom,
+    ) {
+        self._model.draw(in_target, in_lights, in_camera, in_atom);
+    }
 }
 
 pub struct DefaultSpecies<'a> {

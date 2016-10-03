@@ -1,21 +1,23 @@
 #[macro_use]
 extern crate glium;
 
-mod fxaa;
-mod vertex;
-mod matrix;
-mod quaternion;
-mod model;
-mod program;
-mod species;
 mod atom;
-mod molecule;
-mod light;
 mod camera;
+mod fxaa;
+mod light;
+mod lights;
+mod matrix;
+mod model;
+mod molecule;
+mod program;
+mod quaternion;
+mod species;
+mod vertex;
 
 use glium::{DisplayBuild, Surface};
 use molecule::Molecule;
 use light::Light;
+use lights::Lights;
 use camera::Camera;
 
 // ============================================================
@@ -68,15 +70,11 @@ fn main() {
     // ==============================
     // Make lights
     // ==============================
-    let lights = [
-        Light::new(&[ 2.0, 0.0, 0.0],&3.0),
-        Light::new(&[-1.0, 1.0, 0.0],&1.0),
-        Light::new(&[ 0.0,-1.0, 1.0],&1.0),
-    ];
-    let mut light_toggle = true;
-    const LIGHT_COUNT : usize = 3;
-    let mut light_positions : [[f32;LIGHT_COUNT];3] = Default::default();
-    let mut light_brightnesses : [f32;LIGHT_COUNT] = Default::default();
+    let mut lights = Lights::new(
+        &Light::new(&[ 3.0, 0.0, 0.0], &3.0),
+        &Light::new(&[-1.0, 1.0, 0.0], &1.0),
+        &Light::new(&[ 0.0,-1.0, 1.0], &1.0),
+    );
 
     // ==============================
     // Make camera
@@ -106,19 +104,6 @@ fn main() {
     );
 
     // ==============================
-    // Define draw parameters
-    // ==============================
-    let params = glium::DrawParameters {
-        depth: glium::Depth {
-            test: glium::DepthTest::IfLess,
-            write: true,
-            .. Default::default()
-        },
-        backface_culling : glium::BackfaceCullingMode::CullCounterClockwise,
-        .. Default::default()
-    };
-
-    // ==============================
     // set up antialiasing
     // ==============================
     let mut fxaa_enabled = true;
@@ -128,52 +113,32 @@ fn main() {
     // Run everything
     // ==============================
     loop {
-        // calculate light positions.
-        for i in 0..LIGHT_COUNT {
-            let light_position = if light_toggle {
-                *camera.view_matrix() * *lights[i].position()
-            } else {
-                lights[i].position().to_owned()
-            };
-            
-            light_positions[i] = [
-                light_position[0],
-                light_position[1],
-                light_position[2]
-            ];
-            light_brightnesses[i] = lights[i].brightness().to_owned();
-        }
+
+        lights.set_positions(&camera);
 
         molecule.rotate_atoms_against_camera(&camera);
+        
+        {
+            let mut target : glium::Frame = display.draw();
 
-        let mut target = display.draw();
-        fxaa::draw(&fxaa, &mut target, fxaa_enabled, |target| {
-            target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
-            for atom in molecule.atoms() {
-                let mv_matrix = *camera.view_matrix() * *atom.model_matrix();
-                let mvp_matrix = *camera.vp_matrix() * *atom.model_matrix();
-                let perspective_scaling = camera.perspective_matrix().contents()[2][3];
+            let draw_function = |
+                mut target : &mut glium::framebuffer::SimpleFrameBuffer
+            | {
+                target.clear_color_and_depth((0.93, 0.91, 0.835, 1.0), 1.0);
+                for atom in molecule.atoms() {
+                    atom.draw(&mut target, &lights, &camera);
+                }
+            };
 
-                let uniforms = uniform!{
-                    mv_matrix           : mv_matrix.contents().to_owned(),
-                    mvp_matrix          : mvp_matrix.contents().to_owned(),
-                    base_colour         : atom.species().colour().to_owned(),
-                    light_positions     : light_positions,
-                    light_brightnesses  : light_brightnesses,
-                    size                : *atom.species().size(),
-                    eye_space_depth     : mv_matrix.contents()[2][3],
-                    perspective_scaling : perspective_scaling,
-                };
-                target.draw(
-                    atom.species().mesh().vertex_buffer(),
-                    atom.species().mesh().index_buffer(),
-                    atom.species().mesh().program(),
-                    &uniforms,
-                    &params,
-                ).unwrap();
-            }
-        });
-        target.finish().unwrap();
+            fxaa::draw(
+                &fxaa,
+                &mut target,
+                fxaa_enabled,
+                draw_function,
+            );
+
+            target.finish().unwrap();
+        }
 
         for ev in display.poll_events() {
             match ev {
@@ -240,8 +205,8 @@ fn main() {
                         println! ("Resetting camera");
                     },
                     glium::glutin::VirtualKeyCode::T => {
-                        light_toggle = !light_toggle;
-                        println!("light_toggle is now {}", if light_toggle { "on" } else { "off" });
+                        lights.toggle();
+                        println!("Toggling lights.");
                     }
                     _ => {},
                 },

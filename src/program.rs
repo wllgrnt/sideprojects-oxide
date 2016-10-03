@@ -1,11 +1,52 @@
-extern crate glium;
+use atom::Atom;
+use camera::Camera;
+use lights::Lights;
+use model::Model;
 
-pub struct DefaultPrograms {
-    _polyhedron : glium::Program,
-    _sphere     : glium::Program,
+use glium;
+use glium::Surface;
+
+pub struct Program<'a> {
+    _shader_program  : glium::Program,
+    _draw_parameters : glium::DrawParameters<'a>,
+    _draw_program    : Box<Fn(
+                           &mut glium::framebuffer::SimpleFrameBuffer,
+                           &Lights,
+                           &Camera,
+                           &Atom,
+                           &Model,
+                           &glium::Program,
+                           &glium::DrawParameters,
+                       )>,
 }
 
-impl DefaultPrograms {
+impl<'a> Program<'a> {
+    pub fn draw(
+        &self,
+        in_target : &mut glium::framebuffer::SimpleFrameBuffer,
+        in_lights : &Lights,
+        in_camera : &Camera,
+        in_atom   : &Atom,
+        in_model  : &Model,
+    ) {
+        (self._draw_program)(
+            in_target,
+            in_lights,
+            in_camera,
+            in_atom,
+            in_model,
+            &self._shader_program,
+            &self._draw_parameters,
+        );
+    }
+}
+
+pub struct DefaultPrograms<'a> {
+    _polyhedron : Program<'a>,
+    _sphere     : Program<'a>,
+}
+
+impl<'a> DefaultPrograms<'a> {
     pub fn new(in_display : &glium::backend::glutin_backend::GlutinFacade) -> DefaultPrograms {
         
         // ====================
@@ -61,6 +102,56 @@ impl DefaultPrograms {
                 color = vec4((colour3), 1.0);
             }
         "#;
+
+        let shader_program_polyhedron = glium::Program::from_source(
+            in_display,
+            vertex_shader_polyhedron,
+            fragment_shader_polyhedron,
+            None
+        ).unwrap();
+
+        let draw_parameters_polyhedron = glium::DrawParameters {
+            depth: glium::Depth {
+                test: glium::DepthTest::IfLess,
+                write: true,
+                .. Default::default()
+            },
+            backface_culling : glium::BackfaceCullingMode::CullCounterClockwise,
+            .. Default::default()
+        }; 
+
+        let draw_program_polyhedron = |
+            in_target          : &mut glium::framebuffer::SimpleFrameBuffer,
+            in_lights          : &Lights,
+            in_camera          : &Camera,
+            in_atom            : &Atom,
+            in_model           : &Model,
+            in_shader_program  : &glium::Program,
+            in_draw_parameters : &glium::DrawParameters,
+        | {
+            let mv_matrix = *in_camera.view_matrix() * *in_atom.model_matrix();
+            let mvp_matrix = *in_camera.vp_matrix() * *in_atom.model_matrix();
+            let perspective_scaling = in_camera.perspective_matrix().contents()[2][3];
+
+            let uniforms = uniform!{
+                mv_matrix : mv_matrix.contents().clone(),
+                mvp_matrix : mvp_matrix.contents().clone(),
+                base_colour : in_atom.species().colour().clone(),
+                light_positions : in_lights.positions().clone(),
+                light_brightnesses : in_lights.brightnesses().clone(),
+                size : in_atom.species().size().clone(),
+                eye_space_depth : mv_matrix.contents()[2][3],
+                perspective_scaling : perspective_scaling,
+            };
+
+            in_target.draw(
+                in_model.vertex_buffer(),
+                in_model.index_buffer(),
+                in_shader_program,
+                &uniforms,
+                in_draw_parameters,
+            ).unwrap();
+        };
 
         // ====================
         // Sphere shaders
@@ -134,23 +225,71 @@ impl DefaultPrograms {
                              / (2.0*eye_space_depth*(eye_space_depth-depth_change));
             }
         "#;
+
+        let shader_program_sphere = glium::Program::from_source(
+            in_display,
+            vertex_shader_sphere,
+            fragment_shader_sphere,
+            None
+        ).unwrap();
         
+        let draw_parameters_sphere = glium::DrawParameters {
+            depth: glium::Depth {
+                test: glium::DepthTest::IfLess,
+                write: true,
+                .. Default::default()
+            },
+            backface_culling : glium::BackfaceCullingMode::CullCounterClockwise,
+            .. Default::default()
+        };
+
+        let draw_program_sphere = |
+            in_target          : &mut glium::framebuffer::SimpleFrameBuffer,
+            in_lights          : &Lights,
+            in_camera          : &Camera,
+            in_atom            : &Atom,
+            in_model           : &Model,
+            in_shader_program  : &glium::Program,
+            in_draw_parameters : &glium::DrawParameters,
+        | {
+            let mv_matrix = *in_camera.view_matrix() * *in_atom.model_matrix();
+            let mvp_matrix = *in_camera.vp_matrix() * *in_atom.model_matrix();
+            let perspective_scaling = in_camera.perspective_matrix().contents()[2][3];
+
+            let uniforms = uniform!{
+                mv_matrix : mv_matrix.contents().clone(),
+                mvp_matrix : mvp_matrix.contents().clone(),
+                base_colour : in_atom.species().colour().clone(),
+                light_positions : in_lights.positions().clone(),
+                light_brightnesses : in_lights.brightnesses().clone(),
+                size : in_atom.species().size().clone(),
+                eye_space_depth : mv_matrix.contents()[2][3],
+                perspective_scaling : perspective_scaling,
+            };
+
+            in_target.draw(
+                in_model.vertex_buffer(),
+                in_model.index_buffer(),
+                in_shader_program,
+                &uniforms,
+                in_draw_parameters,
+            ).unwrap();
+        };
+
         DefaultPrograms {
-            _polyhedron : glium::Program::from_source(
-                in_display,
-                vertex_shader_polyhedron,
-                fragment_shader_polyhedron,
-                None
-            ).unwrap(),
-            _sphere : glium::Program::from_source(
-                in_display,
-                vertex_shader_sphere,
-                fragment_shader_sphere,
-                None
-            ).unwrap(),
+            _polyhedron : Program{
+                _shader_program  : shader_program_polyhedron,
+                _draw_parameters : draw_parameters_polyhedron,
+                _draw_program    : Box::new(draw_program_polyhedron),
+            },
+            _sphere : Program{
+                _shader_program  : shader_program_sphere,
+                _draw_parameters : draw_parameters_sphere,
+                _draw_program    : Box::new(draw_program_sphere),
+            },
         }
     }
 
-    pub fn polyhedron(&self) -> &glium::Program {&self._polyhedron}
-    pub fn sphere(&self) -> &glium::Program {&self._sphere}
+    pub fn polyhedron(&self) -> &Program {&self._polyhedron}
+    pub fn sphere(&self) -> &Program {&self._sphere}
 }
